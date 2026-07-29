@@ -12,6 +12,46 @@ const drafter = require('./voiceDrafter');
 
 const NICKEL_SENDER = process.env.NICKEL_SENDER || 'support@nickel.com';
 
+// --- loop-fix (added 2026-07-29) -------------------------------------------
+// Root cause of the 2026-07-21/22 UPS loop: an automated notification sender
+// (mcinfo@ups.com) got classified as 'customer_message'. Because UPS sends
+// each update as a NEW thread rather than a reply, the hasDraft guard in
+// handleCustomerThread() never caught it — every notification looked like a
+// brand-new customer email. Leucrocotta drafted + reconciled against each one
+// repeatedly, which is how ~140 near-duplicate entries ended up in voice.md's
+// calibration log.
+//
+// Two independent, defensive guards below (kept in this file rather than
+// emailClassifier.js so they apply regardless of how classifyEmail evolves):
+//   1. AUTOMATED_SENDER_PATTERNS — known notification/billing senders are
+//      never treated as customer messages, even if misclassified upstream.
+//   2. Per-poll per-sender cap — if the SAME sender produces more than
+//      MAX_THREADS_PER_SENDER_PER_POLL distinct threads in one poll (a
+//      notification system misbehaving, or a future mis-threaded loop from
+//      an address not on the known list), the extras are flagged for human
+//      review instead of drafted blindly.
+const AUTOMATED_SENDER_PATTERNS = [
+  /@ups\.com$/i,
+  /@fedex\.com$/i,
+  /@usps\.com$/i,
+  /(^|@)mailer\.shopify\.com$/i,
+  /^billing@shopify\.com$/i,
+  /^mailer@shopify\.com$/i,
+  /@pnc\.com$/i,
+  /^notifications-noreply@linkedin\.com$/i,
+  /^no-?reply/i,
+  /^donotreply/i,
+  /^do-?not-?reply/i,
+];
+
+function isAutomatedSender(address = '') {
+  const addr = address.trim().toLowerCase();
+  return AUTOMATED_SENDER_PATTERNS.some((re) => re.test(addr));
+}
+
+const MAX_THREADS_PER_SENDER_PER_POLL = 3;
+// -----------------------------------------------------------------------
+
 async function handleNickelPaid(msg) {
   const { orderNumber } = parseNickelPaid(msg);
   if (!orderNumber) return { action: 'nickel_paid', skipped: 'no order number parsed' };
@@ -37,14 +77,36 @@ function planInboxActions(messages, { nickelSender = '', selfAddresses = [] } = 
   for (const msg of messages) {
     const kind = classifyEmail(msg, { nickelSender, selfAddresses });
     if (kind === 'nickel_paid') { nickelPaid.push(msg); continue; }
+
+    // loop-fix guard: known automated/notification senders are never drafted
+    // to, regardless of what the classifier decided (see block comment above).
+    const fromAddr = extractAddress(msg.from);
+    if (isAutomatedSender(fromAddr) || selfAddresses.includes(fromAddr)) { ignored += 1; continue; }
+
     if (kind !== 'customer_message') { ignored += 1; continue; }
     const t = threads.get(msg.threadId) || { latestMsg: null, unreadIds: [] };
     t.unreadIds.push(msg.id);
     if (!t.latestMsg || (msg.internalDate || 0) >= (t.latestMsg.internalDate || 0)) t.latestMsg = msg;
     threads.set(msg.threadId, t);
   }
-  const draftThreads = [...threads.entries()].map(([threadId, t]) => ({ threadId, latestMsg: t.latestMsg, unreadIds: t.unreadIds }));
-  return { nickelPaid, draftThreads, ignored };
+
+  // loop-fix guard: cap distinct threads drafted per sender in a single poll.
+  // Anything past the cap is flagged for human review instead of drafted.
+  const seenPerSender = new Map();
+  const draftThreads = [];
+  const flaggedForReview = [];
+  for (const [threadId, t] of threads.entries()) {
+    const fromAddr = extractAddress(t.latestMsg.from);
+    const count = (seenPerSender.get(fromAddr) || 0) + 1;
+    seenPerSender.set(fromAddr, count);
+    if (count > MAX_THREADS_PER_SENDER_PER_POLL) {
+      flaggedForReview.push({ threadId, fromAddr });
+      continue;
+    }
+    draftThreads.push({ threadId, latestMsg: t.latestMsg, unreadIds: t.unreadIds });
+  }
+
+  return { nickelPaid, draftThreads, ignored, flaggedForReview };
 }
 
 // Draft ONE reply for a whole thread. Skips (but marks read) if the thread
@@ -149,7 +211,10 @@ async function runInboxPoll() {
       catch (e) { console.error('Leucrocotta getMessage failed:', e.message); }
     }
 
-    const { nickelPaid, draftThreads } = planInboxActions(messages, { nickelSender: NICKEL_SENDER, selfAddresses });
+    const { nickelPaid, draftThreads, flaggedForReview } = planInboxActions(messages, { nickelSender: NICKEL_SENDER, selfAddresses });
+    if (flaggedForReview && flaggedForReview.length) {
+      console.warn(`Leucrocotta: ${flaggedForReview.length} thread(s) exceeded the per-sender draft cap this poll — left for human review`, flaggedForReview);
+    }
     const results = [];
 
     for (const msg of nickelPaid) {
@@ -170,4 +235,4 @@ async function runInboxPoll() {
   }
 }
 
-module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts };
+module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts, isAutomatedSender };
