@@ -32,6 +32,21 @@ function dkimPasses(authResults, senderDomain) {
 const AUTOMATED = [
   /no-?reply/i, /do-?not-?reply/i, /notifications?@/i, /mailer-daemon/i,
   /postmaster@/i, /@.*\.hubspot/i, /calendar-notification/i, /automated/i,
+  // loop-fix (added 2026-07-29): carrier tracking / shipping-partner billing
+  // senders. Root cause of the 2026-07-21/22 loop — mcinfo@ups.com matched
+  // NONE of the patterns above, so every UPS tracking update was classified
+  // as 'customer_message' and Leucrocotta drafted + "learned" from it
+  // repeatedly (each update is a new thread, so the hasDraft guard in
+  // leucrocottaService.js never caught it either). Adding known carrier and
+  // shipping-billing domains here so this can't recur for these senders;
+  // leucrocottaService.js also has a generic per-sender burst cap as a
+  // backstop for senders not yet on this list.
+  /@ups\.com$/i,
+  /@fedex\.com$/i,
+  /@usps\.com$/i,
+  /@dhl\.com$/i,
+  /^(billing|mailer)@shopify\.com$/i,
+  /@pnc\.com$/i,
 ];
 
 // { from, subject, text, authResults }, opts { nickelSender, selfAddresses: [] }
