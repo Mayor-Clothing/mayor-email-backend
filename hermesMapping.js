@@ -22,7 +22,7 @@ const INVOICE_PROPERTIES = [
   'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5',
   ...QTY_PROPS, ...PRICE_PROPS,
   'za_embroidery', 'zb_art_setup', 'z_sample_reimbursement', 'custom_main_label', 'shipping_cost',
-  'payment_terms', 'unstrike', 'zf_delivered_date',
+  'rush_fee', 'payment_terms', 'unstrike', 'zf_delivered_date',
   // Deals-tab-mirrored sheet columns (dealname/dealstage are standard HubSpot
   // properties; zg_tracking_number is Matt's tracking-number field, also used
   // as the "in transit" trigger elsewhere; print_background is Matt's print
@@ -91,6 +91,7 @@ function dealToRenderPayload(deal, docType) {
   const emb = n(p.za_embroidery);
   const art = n(p.zb_art_setup);           // signed: negative = art credit
   const label = n(p.custom_main_label);
+  const rush = n(p.rush_fee);
   const sampleReimb = n(p.z_sample_reimbursement);
 
   // Address blocks + ship date — mirror mayor-tools' formatting rules exactly.
@@ -136,6 +137,7 @@ function dealToRenderPayload(deal, docType) {
     strike_shipping: strikeShip,
     sample_reimbursement: sampleReimb > 0 ? `(${sampleReimb.toFixed(2)})` : null,
     custom_label: label > 0 ? label : null,
+    rush_fee: rush > 0 ? rush : null,
   };
 }
 

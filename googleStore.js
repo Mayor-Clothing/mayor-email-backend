@@ -88,9 +88,10 @@ function effectiveSubtotalAndTotal(p) {
   const shipForTotal = p.strike_shipping ? 0 : num(p.shipping);
   const reimbForTotal = num(p.sample_reimbursement);
   const customForTotal = num(p.custom_label);
+  const rushForTotal = num(p.rush_fee);
   const total = p.total && Number(p.total) > 0
     ? Number(p.total)
-    : subtotal + shipForTotal + customForTotal + embForTotal + artForTotal - reimbForTotal;
+    : subtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal;
   return { subtotal, total };
 }
 
@@ -120,6 +121,7 @@ function buildDetailRow(p, driveLink) {
     strike_embroidery: p.strike_embroidery ? '1' : '', strike_art: p.strike_art ? '1' : '', strike_shipping: p.strike_shipping ? '1' : '',
     orig_price_1: get(0, 'orig_price') || '', orig_price_2: get(1, 'orig_price') || '', orig_price_3: get(2, 'orig_price') || '', orig_price_4: get(3, 'orig_price') || '', orig_price_5: get(4, 'orig_price') || '',
     drive_pdf_link: driveLink || '',
+    rush_fee: p.rush_fee || '',
   });
 }
 

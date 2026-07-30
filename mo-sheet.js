@@ -26,6 +26,9 @@ const COLUMNS = [
   'strike_embroidery', 'strike_art', 'strike_shipping',
   'orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_price_4', 'orig_price_5',
   'drive_pdf_link',
+  // Appended after the original 58 (drive_pdf_link) so existing column positions
+  // never shift. Rush Fee (BG) — a deal-level surcharge like Shipping.
+  'rush_fee',
 ];
 
 // name -> 0-based column index (for the reader).

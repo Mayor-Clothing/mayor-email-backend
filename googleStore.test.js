@@ -57,7 +57,7 @@ assert.strictEqual(row[49], '1');                    // AX strike_embroidery
 assert.strictEqual(row[50], '');                     // AY strike_art (false)
 assert.strictEqual(row[51], '1');                    // AZ strike_shipping
 assert.strictEqual(row[57], 'https://drive.google.com/file/d/abc/view'); // BF drive_pdf_link
-assert.strictEqual(row.length, 58);
+assert.strictEqual(row.length, 59);
 
 // hermesMapping.js deliberately sends subtotal:0/total:0 ("force doc-render to
 // recompute from line items") -- buildDetailRow must fall back to the same

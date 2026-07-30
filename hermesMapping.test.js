@@ -34,6 +34,7 @@ const deal = {
     shipping_cost: '25',
     payment_terms: 'Due on receipt.',
     unstrike: 'Embroidery, Art Setup',
+    rush_fee: '150',
   },
 };
 
@@ -118,5 +119,7 @@ assert.ok(INVOICE_PROPERTIES.includes('dealstage'));
 assert.ok(INVOICE_PROPERTIES.includes('zg_tracking_number'));
 assert.ok(INVOICE_PROPERTIES.includes('print_background'));
 assert.ok(INVOICE_PROPERTIES.includes('zf_delivered_date'));
+assert.ok(INVOICE_PROPERTIES.includes('rush_fee'));
+assert.strictEqual(p.rush_fee, 150);
 
 console.log('hermesMapping.test.js: all assertions passed');
