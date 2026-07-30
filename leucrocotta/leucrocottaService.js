@@ -12,45 +12,15 @@ const drafter = require('./voiceDrafter');
 
 const NICKEL_SENDER = process.env.NICKEL_SENDER || 'support@nickel.com';
 
-// --- loop-fix (added 2026-07-29) -------------------------------------------
-// Root cause of the 2026-07-21/22 UPS loop: an automated notification sender
-// (mcinfo@ups.com) got classified as 'customer_message'. Because UPS sends
-// each update as a NEW thread rather than a reply, the hasDraft guard in
-// handleCustomerThread() never caught it — every notification looked like a
-// brand-new customer email. Leucrocotta drafted + reconciled against each one
-// repeatedly, which is how ~140 near-duplicate entries ended up in voice.md's
-// calibration log.
-//
-// Two independent, defensive guards below (kept in this file rather than
-// emailClassifier.js so they apply regardless of how classifyEmail evolves):
-//   1. AUTOMATED_SENDER_PATTERNS — known notification/billing senders are
-//      never treated as customer messages, even if misclassified upstream.
-//   2. Per-poll per-sender cap — if the SAME sender produces more than
-//      MAX_THREADS_PER_SENDER_PER_POLL distinct threads in one poll (a
-//      notification system misbehaving, or a future mis-threaded loop from
-//      an address not on the known list), the extras are flagged for human
-//      review instead of drafted blindly.
-const AUTOMATED_SENDER_PATTERNS = [
-  /@ups\.com$/i,
-  /@fedex\.com$/i,
-  /@usps\.com$/i,
-  /(^|@)mailer\.shopify\.com$/i,
-  /^billing@shopify\.com$/i,
-  /^mailer@shopify\.com$/i,
-  /@pnc\.com$/i,
-  /^notifications-noreply@linkedin\.com$/i,
-  /^no-?reply/i,
-  /^donotreply/i,
-  /^do-?not-?reply/i,
-];
-
-function isAutomatedSender(address = '') {
-  const addr = address.trim().toLowerCase();
-  return AUTOMATED_SENDER_PATTERNS.some((re) => re.test(addr));
-}
-
+// loop-fix (added 2026-07-29): backstop for the 2026-07-21/22 UPS loop. The
+// actual sender-classification fix lives in emailClassifier.js's AUTOMATED
+// list (that's the single source of truth for "is this sender automated?").
+// This cap is a different, complementary guard — it catches a sender that
+// ISN'T on that list yet (a new notification system, or a genuine mis-
+// threaded loop) by refusing to draft more than N distinct threads from the
+// same address in one poll. Anything past the cap is flagged for human
+// review instead of drafted.
 const MAX_THREADS_PER_SENDER_PER_POLL = 3;
-// -----------------------------------------------------------------------
 
 async function handleNickelPaid(msg) {
   const { orderNumber } = parseNickelPaid(msg);
@@ -77,12 +47,6 @@ function planInboxActions(messages, { nickelSender = '', selfAddresses = [] } = 
   for (const msg of messages) {
     const kind = classifyEmail(msg, { nickelSender, selfAddresses });
     if (kind === 'nickel_paid') { nickelPaid.push(msg); continue; }
-
-    // loop-fix guard: known automated/notification senders are never drafted
-    // to, regardless of what the classifier decided (see block comment above).
-    const fromAddr = extractAddress(msg.from);
-    if (isAutomatedSender(fromAddr) || selfAddresses.includes(fromAddr)) { ignored += 1; continue; }
-
     if (kind !== 'customer_message') { ignored += 1; continue; }
     const t = threads.get(msg.threadId) || { latestMsg: null, unreadIds: [] };
     t.unreadIds.push(msg.id);
@@ -90,8 +54,9 @@ function planInboxActions(messages, { nickelSender = '', selfAddresses = [] } = 
     threads.set(msg.threadId, t);
   }
 
-  // loop-fix guard: cap distinct threads drafted per sender in a single poll.
-  // Anything past the cap is flagged for human review instead of drafted.
+  // loop-fix guard: cap distinct threads drafted per sender in a single poll
+  // (see comment on MAX_THREADS_PER_SENDER_PER_POLL above). This runs after
+  // classification, on top of whatever emailClassifier already filtered out.
   const seenPerSender = new Map();
   const draftThreads = [];
   const flaggedForReview = [];
@@ -235,4 +200,4 @@ async function runInboxPoll() {
   }
 }
 
-module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts, isAutomatedSender };
+module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts };
