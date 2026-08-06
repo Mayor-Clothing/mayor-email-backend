@@ -92,7 +92,7 @@ assert.strictEqual(matchRowIndex(infoRows, 7, 0, 'D2', 'Nope'), -1, 'Order Info 
   assert.strictEqual(credsPresent(), false, 'test env should have no GOOGLE_SERVICE_ACCOUNT_JSON');
   const oc = await persistOrder({ payload, docType: 'order_confirmation', pdfBuffer: Buffer.from('x') });
   assert.strictEqual(oc.persisted, false);
-  assert.strictEqual(oc.status, 'Awaiting Approval');
+  assert.strictEqual(oc.status, 'Awaiting Customer Approval');
   const inv = await persistOrder({ payload, docType: 'invoice', pdfBuffer: Buffer.from('x') });
   assert.strictEqual(inv.status, 'Awaiting Payment');
   console.log('googleStore.test.js: all assertions passed');

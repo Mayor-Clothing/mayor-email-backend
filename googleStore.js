@@ -37,7 +37,7 @@ function credsPresent() {
 // an invoice for an already-paid/delivered order silently resets it to Awaiting
 // Payment. Rank blank/unknown as 0 so a first write always lands.
 const STATUS_RANK = {
-  'awaiting approval': 1, 'awaiting payment': 2, 'pending': 3, 'paid': 3,
+  'awaiting customer approval': 1, 'awaiting payment': 2, 'pending': 3, 'paid': 3,
   'in transit': 4, 'shipped': 4, 'delivered': 5,
 };
 const statusRank = (s) => STATUS_RANK[String(s || '').trim().toLowerCase()] || 0;
@@ -198,7 +198,7 @@ async function uploadPdfToDrive(drive, orderNumber, docType, pdfBuffer) {
 // Orchestrator. payload = doc-render payload; docType = 'order_confirmation'|'invoice'.
 // Returns { persisted, status, driveFileId, pdfUrl } — never throws (logs + degrades).
 async function persistOrder({ payload, docType, pdfBuffer }) {
-  const status = docType === 'invoice' ? 'Awaiting Payment' : 'Awaiting Approval';
+  const status = docType === 'invoice' ? 'Awaiting Payment' : 'Awaiting Customer Approval';
   if (!credsPresent()) {
     return { persisted: false, status, driveFileId: null, pdfUrl: null, skipped: 'no google credentials' };
   }

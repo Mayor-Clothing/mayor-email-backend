@@ -10,7 +10,7 @@ Operational handoff covering **all three repos**. This same file lives in each r
 - **System is live and doing real work** — HubSpot, Google (Drive/Sheets/Gmail DWD), Claude, Resend all configured on Render. The "everything returns `skipped` by design / this is config-only, don't touch code" framing below is **obsolete**.
 - **Leucrocotta is push-driven**, not a 15-min cron: Gmail Pub/Sub → `POST /leucrocotta/gmail-webhook/:secret` → `runInboxPoll`. A `leucrocotta-watch-renew` cron re-registers the Gmail `watch()` every 6 days (it expires in ≤7). `/leucrocotta/poll` is a manual fallback.
 - **Order-doc sheet layout is 58 columns**, and the layout is now a **single source of truth in `mo-sheet.js`** (duplicated verbatim in both server repos, like `doc-render.js`) — the two writers + the portal reader all derive column positions from it. The "46-column layout, duplicated, leave as-is" note below is obsolete.
-- **Status ladder**: Awaiting Approval → Awaiting Payment → Pending (paid) → In Transit → Delivered, and status writes are now **monotonic** (never regress).
+- **Status ladder**: Awaiting Customer Approval → Awaiting Payment → Pending (paid) → In Transit → Delivered, and status writes are now **monotonic** (never regress).
 - **Hermes poll is bounded**: `generateDocument` clears the `zc_trigger_oc`/`zd_trigger_invoice` checkbox after a successful generate, so the hourly poll only processes freshly-toggled deals (previously it re-generated every flagged deal every run and timed the cron out).
 - **Retired**: the social-drafting poll (now a Claude Project). Delete the orphaned `social-poll` Render cron if still provisioned.
 - Full change detail lives in the `project_mayor_agent.md` agent-memory file.
