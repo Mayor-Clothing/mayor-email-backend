@@ -4,11 +4,21 @@ Single source of truth for the new per-line-item HubSpot deal properties.
 **Marcus: fill in the "ACTUAL HubSpot name" column when you can get into HubSpot.**
 Once filled, wiring is mechanical (see "Build steps" per field below).
 
-Status: **CREATED & VERIFIED LIVE** (2026-08-11) — all 15 properties + the
+Status: **CREATED, VERIFIED LIVE & WIRED** (2026-08-11) — all 15 properties + the
 `mo_line_item_extra` group created via `scripts/create-hubspot-properties.js`
 and confirmed present via the HubSpot MCP. The recommended names below ARE the
-actual names (script used them verbatim). Batch F code wiring is now unblocked
-for these three families. Field #8 still pending a content decision.
+actual names (script used them verbatim). Code wiring for all three families is
+COMMITTED in both repos (orig_price, product_page, mockup — see git log). Tests
+pass. Field #8 still pending a content decision.
+
+Post-wiring notes:
+- Widening the portal read range surfaced that `rush_fee` (col BG) was already
+  beyond the old `A:BF` range and never reached the portal — incidentally fixed.
+- The new columns (BH..BQ) overlap the legacy BG:CZ debris zone (prior session's
+  pending cleanup). A fresh write overwrites its own row, so debris self-heals as
+  orders regenerate, but stale rows 3-13 may show stray links/images until that
+  range is cleared. Recommend clearing BG:CZ.
+- Mockup is portal-only (NOT in the PDF) — confirm with Matt if he wants it there.
 
 Decisions locked (2026-08-11):
 - `product_page_N` (details link): **PDF goes per-item too** — update
