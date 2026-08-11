@@ -3,9 +3,9 @@
 const assert = require('assert');
 const { COLUMNS, COL, buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
 
-// 59 columns, A..BG — must match the live sheet exactly (rush_fee appended at BG).
-assert.strictEqual(COLUMNS.length, 59, 'layout must be 59 columns');
-assert.strictEqual(COL.rush_fee, 58, 'rush_fee is appended last (BG)');
+// 69 columns, A..BQ — rush_fee at BG(58), then per-item product_page/mockup x5.
+assert.strictEqual(COLUMNS.length, 69, 'layout must be 69 columns');
+assert.strictEqual(COL.rush_fee, 58, 'rush_fee stays at BG (positions above never shift)');
 
 // Spot-pin the positions that matter (incl. the quirky slot-4/5 qty/price order).
 const expected = {
@@ -16,13 +16,14 @@ const expected = {
   embroidery: 41, art_setup: 42, total: 46, payment_link: 47, payment_link_2: 48,
   strike_embroidery: 49, strike_art: 50, strike_shipping: 51, orig_price_1: 52,
   orig_price_5: 56, drive_pdf_link: 57,
+  p1_product_page: 59, p5_product_page: 63, p1_mockup: 64, p5_mockup: 68,
 };
 for (const [name, idx] of Object.entries(expected)) assert.strictEqual(COL[name], idx, `COL.${name} must be ${idx}`);
 assert.strictEqual(INFO_DEAL_COL, 7, 'Order Info deal_id column is H(7)');
 
 // buildRow places values by name, blanks the rest, and is exactly 58 wide.
 const row = buildRow({ deal_id: 'D1', order_number: 'Ord', total: 99, strike_embroidery: '1' });
-assert.strictEqual(row.length, 59);
+assert.strictEqual(row.length, 69);
 assert.strictEqual(row[0], 'D1');
 assert.strictEqual(row[5], 'Ord');
 assert.strictEqual(row[46], 99);

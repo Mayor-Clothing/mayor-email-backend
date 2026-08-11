@@ -13,6 +13,8 @@ const { formatAddrHS, parseShipDate, cleanDescription, qtyFromSizes } = require(
 const QTY_PROPS   = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5'];
 const PRICE_PROPS = ['n_price_1', 'z_price_2', 'z_price_3', 'z_price_4', 'z_price_5'];
 const ORIG_PRICE_PROPS = ['orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_price_4', 'orig_price_5'];
+const PRODUCT_PAGE_PROPS = ['product_page_1', 'product_page_2', 'product_page_3', 'product_page_4', 'product_page_5'];
+const MOCKUP_PROPS = ['mockup_1', 'mockup_2', 'mockup_3', 'mockup_4', 'mockup_5'];
 
 // Every deal property Hermes needs to render a document. Request exactly these.
 const INVOICE_PROPERTIES = [
@@ -21,7 +23,7 @@ const INVOICE_PROPERTIES = [
   'product_1', 'product_2', 'product_3', 'product_4', 'product_5',
   'description_1', 'description_2', 'description_3', 'description_4', 'description_5',
   'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5',
-  ...QTY_PROPS, ...PRICE_PROPS, ...ORIG_PRICE_PROPS,
+  ...QTY_PROPS, ...PRICE_PROPS, ...ORIG_PRICE_PROPS, ...PRODUCT_PAGE_PROPS, ...MOCKUP_PROPS,
   'za_embroidery', 'zb_art_setup', 'z_sample_reimbursement', 'custom_main_label', 'shipping_cost',
   'rush_fee', 'payment_terms', 'unstrike', 'zf_delivered_date',
   // Deals-tab-mirrored sheet columns (dealname/dealstage are standard HubSpot
@@ -68,6 +70,8 @@ function dealToRenderPayload(deal, docType) {
       orig_price: n(p[ORIG_PRICE_PROPS[i]]) || null,   // per-slot "was" price (blank => no strike)
       price,
       amount: qty * price,         // doc-render leaves the cell blank if amount is missing
+      product_page: (p[PRODUCT_PAGE_PROPS[i]] || '').trim(),   // per-item "Additional Details" link
+      mockup: (p[MOCKUP_PROPS[i]] || '').trim(),               // per-item mockup image
     });
   }
 

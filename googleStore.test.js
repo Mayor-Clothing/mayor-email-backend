@@ -10,7 +10,7 @@ const payload = {
   address: '123 Main St', ship_date: '2026-07-20', payment_link: 'https://nickel.com/a',
   print_background: 'https://img/bg.png', in_hand_date: '2026-08-01',
   line_items: [
-    { url: 'https://img/p.png', description: 'Navy', sizes: 'S-24 M-16 L-8', quantity: 48, price: 42, orig_price: null },
+    { url: 'https://img/p.png', description: 'Navy', sizes: 'S-24 M-16 L-8', quantity: 48, price: 42, orig_price: null, product_page: 'https://x/details1', mockup: 'https://img/mock1.png' },
     { url: '', description: 'White', sizes: '', quantity: 12, price: 0, orig_price: null },
   ],
   shipping: 25, subtotal: 2016, embroidery: 150, art_setup: -40, total: 2276,
@@ -57,7 +57,9 @@ assert.strictEqual(row[49], '1');                    // AX strike_embroidery
 assert.strictEqual(row[50], '');                     // AY strike_art (false)
 assert.strictEqual(row[51], '1');                    // AZ strike_shipping
 assert.strictEqual(row[57], 'https://drive.google.com/file/d/abc/view'); // BF drive_pdf_link
-assert.strictEqual(row.length, 59);
+assert.strictEqual(row[59], 'https://x/details1');  // BH p1_product_page (per-item link)
+assert.strictEqual(row[64], 'https://img/mock1.png'); // BM p1_mockup
+assert.strictEqual(row.length, 69);
 
 // hermesMapping.js deliberately sends subtotal:0/total:0 ("force doc-render to
 // recompute from line items") -- buildDetailRow must fall back to the same

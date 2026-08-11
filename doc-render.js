@@ -213,7 +213,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           try {
             // Fill the product cell top-to-bottom so the polo runs the full row
             // height instead of a small thumbnail with dead space beneath it.
-            doc.image(imgBuf, cP + 3, ry + 4, { width: pW - 6, height: rowH - 8, link: data.product_page || '' });
+            doc.image(imgBuf, cP + 3, ry + 4, { width: pW - 6, height: rowH - 8, link: item.product_page || data.product_page || '' });
           } catch (e) {
             doc.text(item.product || '', cP + 3, ry + 7, { width: pW - 6, underline: false });
           }

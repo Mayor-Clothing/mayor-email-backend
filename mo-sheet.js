@@ -29,6 +29,13 @@ const COLUMNS = [
   // Appended after the original 58 (drive_pdf_link) so existing column positions
   // never shift. Rush Fee (BG) — a deal-level surcharge like Shipping.
   'rush_fee',
+  // Per-line-item fields sourced from new HubSpot props (product_page_N/mockup_N).
+  // Appended (never inserted) so the columns above keep their positions. NOTE:
+  // these live in the BG+ range that also holds legacy pre-reorg debris on old
+  // rows — a fresh write overwrites its own row, but stale rows may still carry
+  // junk here until that range is cleared.
+  'p1_product_page', 'p2_product_page', 'p3_product_page', 'p4_product_page', 'p5_product_page',
+  'p1_mockup', 'p2_mockup', 'p3_mockup', 'p4_mockup', 'p5_mockup',
 ];
 
 // name -> 0-based column index (for the reader).
