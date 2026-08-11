@@ -9,7 +9,7 @@ Status: **CREATED, VERIFIED LIVE & WIRED** (2026-08-11) — all 15 properties + 
 and confirmed present via the HubSpot MCP. The recommended names below ARE the
 actual names (script used them verbatim). Code wiring for all three families is
 COMMITTED in both repos (orig_price, product_page, mockup — see git log). Tests
-pass. Field #8 still pending a content decision.
+pass. Field #8 resolved (see below) — it was a card-ordering note, not a new field.
 
 Post-wiring notes:
 - Widening the portal read range surfaced that `rush_fee` (col BG) was already
@@ -49,10 +49,13 @@ Decisions locked (2026-08-11):
 | | | `orig_price_3` | number | `<<FILL IN>>` |
 | | | `orig_price_4` | number | `<<FILL IN>>` |
 | | | `orig_price_5` | number | `<<FILL IN>>` |
-| Field #8 | new field **between Description and Sizes** — CONTENT STILL UNDECIDED, do not create yet | `<<TBD — needs content decision>>` | `<<TBD>>` | `<<FILL IN>>` |
+Field #8 RESOLVED (2026-08-11): NOT a new field. Marcus clarified it just meant
+"place per-item product_page after the mockup field and before description in
+the HubSpot card." No new property, no new code — pure card-layout ordering
+(the per-item block below already reflects it).
 
-That's **15 confirmed properties + 1 TBD (#8)** — needs a NEW property group
-(you were at 48/50 on the current one).
+That's **15 properties total** — needs a NEW property group (you were at 48/50
+on the current one).
 
 ---
 
@@ -72,7 +75,7 @@ entry flow with zero downstream risk.
 **Card 2 — "Line Items"** — grouped PER ITEM (not per field-type), each block:
 ```
 Item N:  product_N → mockup_N → product_page_N →
-         description_N → [#8]_N → sizes_N →
+         description_N → sizes_N →
          quantity_N → orig_price_N → price_N
 ```
 Rhythm per block: identity (product/mockup/link) → specs (desc/#8/sizes) →
