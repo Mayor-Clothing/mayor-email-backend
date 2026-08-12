@@ -1,6 +1,6 @@
 const express = require('express');
 const { config, assertConfigured } = require('./config');
-const { generateDocument, runPoll } = require('./hermesService');
+const { generateDocument, runPoll, refreshModifiedDeals } = require('./hermesService');
 const { requireInternalAuth } = require('./internalAuth');
 
 const router = express.Router();
@@ -43,6 +43,29 @@ router.post('/poll', requireInternalAuth, async (_req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// POST /hermes/refresh — the public "Refresh" button on mayor-tools. NO internal
+// key: the button lives on a public GitHub Pages site so it can't hold one. Safe
+// because it only re-syncs the sheet to match current HubSpot (nothing
+// destructive or exfiltrating). Rate-limited to blunt accidental/abusive spam.
+const _refreshHits = new Map();
+function refreshRateLimit(req, res, next) {
+  const ip = req.ip || 'x';
+  const now = Date.now();
+  const rec = _refreshHits.get(ip);
+  if (!rec || now > rec.reset) { _refreshHits.set(ip, { n: 1, reset: now + 60000 }); return next(); }
+  if (++rec.n > 6) return res.status(429).json({ error: 'Too many refreshes — wait a minute.' });
+  next();
+}
+
+router.post('/refresh', refreshRateLimit, (req, res) => {
+  // Respond right away so closing the tab can't cancel the work; the reconcile
+  // runs in the background. Matt clicks and x's out — that's the intended flow.
+  res.status(202).json({ ok: true, message: 'Refresh received — Hermes is checking HubSpot for edits.' });
+  refreshModifiedDeals()
+    .then((s) => console.log('refresh done:', JSON.stringify(s)))
+    .catch((e) => console.error('refresh failed:', e.message));
 });
 
 module.exports = router;

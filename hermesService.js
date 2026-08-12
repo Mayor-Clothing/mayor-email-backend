@@ -4,7 +4,7 @@
 const { getInvoiceDeal, searchDeals, clearDealTrigger } = require('./hubspot');
 const { dealToRenderPayload, INVOICE_PROPERTIES } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
-const { persistOrder, setOrderStatus } = require('./googleStore');
+const { persistOrder, setOrderStatus, dealDocPresence } = require('./googleStore');
 
 // Trigger property names (blueprint §4.3). Created manually in HubSpot; until
 // then triggers simply never fire and the poll's searches no-op.
@@ -25,7 +25,10 @@ const DEDUP_TTL_MS = 2 * 60 * 1000;
 const seenAt = new Map(); // key -> last-generated epoch ms
 
 // docType: 'order_confirmation' | 'invoice'
-async function generateDocument({ dealId, docType, idempotencyKey }) {
+// skipClearTrigger: don't PATCH the deal's trigger checkbox afterward — used by
+// the refresh reconcile so it never bumps hs_lastmodifieddate (which would make
+// the deal look "edited" and re-loop on the next refresh).
+async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrigger }) {
   const deal = await getInvoiceDeal(dealId, INVOICE_PROPERTIES);
   const payload = dealToRenderPayload(deal, docType);
   const orderNumber = payload.order_number;
@@ -52,7 +55,7 @@ async function generateDocument({ dealId, docType, idempotencyKey }) {
   // Clear the trigger checkbox now that this doc exists, so the hourly poll
   // stops re-generating it every run (best-effort: needs deals-write scope on
   // the private app; a failure just leaves the old, slower behavior).
-  if (persist.persisted && dealId) {
+  if (!skipClearTrigger && persist.persisted && dealId) {
     const trigger = docType === 'invoice' ? TRIGGER.invoice : TRIGGER.oc;
     try { await clearDealTrigger(dealId, trigger); }
     catch (e) { console.error(`clearDealTrigger ${trigger} for deal ${dealId} failed:`, e.message); }
@@ -160,4 +163,42 @@ async function runPoll() {
   return counts;
 }
 
-module.exports = { generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, TRIGGER };
+// Manual "Refresh" button (mayor-tools). Re-sync deals edited in HubSpot since
+// the last refresh, so a HubSpot change lands on the sheet WITHOUT the button
+// knowing which deal it was — the deal's own hs_lastmodifieddate is the signal.
+// Only regenerates docs that ALREADY exist for the deal (update, never create a
+// premature OC/Invoice for a deal that was merely edited mid-stage), and never
+// PATCHes the deal (skipClearTrigger) so a refresh can't loop back on itself.
+let lastRefreshTs = Date.now() - 24 * 60 * 60 * 1000; // cold start: cover the last 24h
+async function refreshModifiedDeals() {
+  const since = lastRefreshTs;
+  const summary = { checked: 0, regenerated: [], errors: 0 };
+  let deals;
+  try {
+    deals = await searchDeals(
+      [{ filters: [{ propertyName: 'hs_lastmodifieddate', operator: 'GTE', value: String(since) }] }],
+      ['order_number'],
+    );
+  } catch (e) {
+    console.error('refresh searchDeals failed:', e.message);
+    return { ...summary, error: e.message };
+  }
+  lastRefreshTs = Date.now();
+  summary.checked = deals.length;
+  for (const d of deals) {
+    const orderNumber = (d.properties && d.properties.order_number) || '';
+    let presence;
+    try { presence = await dealDocPresence({ dealId: d.id, orderNumber }); }
+    catch (e) { summary.errors += 1; console.error(`refresh presence ${d.id}:`, e.message); continue; }
+    for (const docType of ['order_confirmation', 'invoice']) {
+      if (!(docType === 'invoice' ? presence.invoice : presence.oc)) continue;
+      try {
+        await generateDocument({ dealId: d.id, docType, skipClearTrigger: true });
+        summary.regenerated.push(`${orderNumber || d.id}:${docType === 'invoice' ? 'inv' : 'oc'}`);
+      } catch (e) { summary.errors += 1; console.error(`refresh regen ${d.id} ${docType}:`, e.message); }
+    }
+  }
+  return summary;
+}
+
+module.exports = { generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, refreshModifiedDeals, TRIGGER };

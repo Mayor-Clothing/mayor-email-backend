@@ -282,4 +282,18 @@ async function setOrderStatus({ orderNumber, status, tracking, deliveredDate }) 
   }
 }
 
-module.exports = { persistOrder, setOrderStatus, buildDetailRow, credsPresent, matchRowIndex };
+// Which detail tabs already hold a row for this deal (by deal_id, fallback
+// order_number)? Used by the refresh reconcile to update only docs that already
+// exist — never materialize a premature OC/Invoice for a deal that was merely
+// edited mid-stage. deal_id is col A(0), order_number col F(5) on both tabs.
+async function dealDocPresence({ dealId, orderNumber }) {
+  if (!credsPresent()) return { oc: false, invoice: false };
+  const { sheets } = getClients();
+  const has = async (tab) => {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A:F` });
+    return matchRowIndex(res.data.values || [], 0, 5, dealId, orderNumber) >= 1;
+  };
+  return { oc: await has('Order Confirmations'), invoice: await has('Invoices') };
+}
+
+module.exports = { persistOrder, setOrderStatus, buildDetailRow, credsPresent, matchRowIndex, dealDocPresence };
