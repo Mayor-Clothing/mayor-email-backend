@@ -168,13 +168,14 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       // ── RIGHT COLUMN — TABLE ──
       let ry = bodyY;
 
-      // Two image thumbnails (Product + Mockup) mirror the order page. Kept
-      // narrow so Description still has room in this ~300pt-wide table.
-      const pW = 40;
+      // Product is a text name ~90% of the time (e.g. "Men's Custom Print Polo"),
+      // so it gets a text-width column; Mockup is a small image thumbnail. Widths
+      // are tight because this table is only ~300pt wide.
+      const pW = 62;
       const mW = 40;
-      const qW = 44;
-      const prW = 44;
-      const aW = 52;
+      const qW = 38;
+      const prW = 42;
+      const aW = 50;
       const dW = rightW - pW - mW - qW - prW - aW;
 
       const cP  = rightX;
@@ -208,7 +209,8 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const imgSize = 52; // thumbnail size in points
         const descH = doc.fontSize(8.5).heightOfString(descText, { width: dW - 8, lineGap: 1.5 });
         const hasDualPrice = item.orig_price && Number(item.orig_price) > 0;
-        const rowH = Math.max((imgBuf || mockBuf) ? imgSize + 10 : 0, descH + 14, hasDualPrice ? 40 : 26);
+        const prodH = doc.fontSize(8.5).heightOfString(item.product || '', { width: pW - 6 });
+        const rowH = Math.max((imgBuf || mockBuf) ? imgSize + 10 : 0, descH + 14, prodH + 14, hasDualPrice ? 40 : 26);
 
         if (i % 2 === 1) {
           doc.rect(rightX, ry, rightW, rowH).fill('#f9f9f8').fillColor('#1a1a18');
