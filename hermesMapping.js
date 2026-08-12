@@ -16,6 +16,16 @@ const ORIG_PRICE_PROPS = ['orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_
 const PRODUCT_PAGE_PROPS = ['product_page_1', 'product_page_2', 'product_page_3', 'product_page_4', 'product_page_5'];
 const MOCKUP_PROPS = ['mockup_1', 'mockup_2', 'mockup_3', 'mockup_4', 'mockup_5'];
 
+// HubSpot's Order Status dropdown stores an internal VALUE; Matt renamed two
+// option labels (Pending -> "In Progress", Shipped -> "In Transit") but kept the
+// old values. Everything human-facing (sheet, portal, HubSpot UI) shows the
+// LABEL; HubSpot's API reads/writes the VALUE. Map both ways — update if the
+// dropdown options ever change again.
+const STATUS_VALUE_TO_LABEL = { Pending: 'In Progress', Shipped: 'In Transit' };
+const STATUS_LABEL_TO_VALUE = { 'In Progress': 'Pending', 'In Transit': 'Shipped' };
+const statusToLabel = (v) => { const s = String(v == null ? '' : v).trim(); return STATUS_VALUE_TO_LABEL[s] || s; };
+const statusToValue = (l) => { const s = String(l == null ? '' : l).trim(); return STATUS_LABEL_TO_VALUE[s] || s; };
+
 // Every deal property Hermes needs to render a document. Request exactly these.
 const INVOICE_PROPERTIES = [
   'order_number', 'club', 'c_billing_address', 'shippingbilling_address', 'ship_date',
@@ -120,7 +130,7 @@ function dealToRenderPayload(deal, docType) {
     deal_id: deal?.id || '',
     deal_name: p.dealname || '',
     deal_stage: p.dealstage || '',
-    order_status: (p.order_status || '').trim(),   // manual "Order Status" dropdown -> sheet status
+    order_status: statusToLabel(p.order_status),   // dropdown VALUE -> display LABEL for the sheet
     tracking_number: p.zg_tracking_number || '',
     print_background: p.print_background || '',
     order_number: p.order_number || '',
@@ -151,4 +161,4 @@ function dealToRenderPayload(deal, docType) {
   };
 }
 
-module.exports = { dealToRenderPayload, INVOICE_PROPERTIES };
+module.exports = { dealToRenderPayload, INVOICE_PROPERTIES, statusToLabel, statusToValue };

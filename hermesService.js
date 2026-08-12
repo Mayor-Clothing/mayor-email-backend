@@ -1,8 +1,8 @@
 // Hermes core: generate a document from a HubSpot deal, and the status
 // transitions. Shared by the HTTP route, the webhook fast-path, and the poll.
 
-const { getInvoiceDeal, searchDeals, clearDealTrigger } = require('./hubspot');
-const { dealToRenderPayload, INVOICE_PROPERTIES } = require('./hermesMapping');
+const { getInvoiceDeal, searchDeals, clearDealTrigger, setDealOrderStatus } = require('./hubspot');
+const { dealToRenderPayload, INVOICE_PROPERTIES, statusToValue } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
 const { persistOrder, setOrderStatus, dealDocPresence } = require('./googleStore');
 
@@ -76,7 +76,11 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
 async function markInTransit(dealId) {
   const deal = await getInvoiceDeal(dealId, ['order_number', TRIGGER.tracking]);
   const p = deal.properties || {};
-  return setOrderStatus({ orderNumber: p.order_number, status: 'In Transit', tracking: p[TRIGGER.tracking] });
+  const res = await setOrderStatus({ orderNumber: p.order_number, status: 'In Transit', tracking: p[TRIGGER.tracking] });
+  // Mirror the status onto the HubSpot dropdown so it matches the sheet.
+  try { await setDealOrderStatus(dealId, statusToValue('In Transit')); }
+  catch (e) { console.error(`setDealOrderStatus In Transit for deal ${dealId} failed:`, e.message); }
+  return res;
 }
 
 
@@ -99,12 +103,18 @@ async function markDelivered(dealId) {
   if (!inHandReached(p[TRIGGER.delivered])) {
     return { action: 'delivered', orderNumber: p.order_number, skipped: 'in hand date is in the future' };
   }
-  return setOrderStatus({ orderNumber: p.order_number, status: 'Delivered', deliveredDate: p[TRIGGER.delivered] });
+  const res = await setOrderStatus({ orderNumber: p.order_number, status: 'Delivered', deliveredDate: p[TRIGGER.delivered] });
+  // Mirror the status onto the HubSpot dropdown so it matches the sheet.
+  try { await setDealOrderStatus(dealId, statusToValue('Delivered')); }
+  catch (e) { console.error(`setDealOrderStatus Delivered for deal ${dealId} failed:`, e.message); }
+  return res;
 }
 
-// Nickel "paid" -> Pending. Called by Leucrocotta with the parsed order number.
+// Status is manual now — Matt sets "In Progress" after payment. A Nickel "paid"
+// event no longer auto-changes the order status. Kept as a no-op so Leucrocotta's
+// call site doesn't break.
 async function markPaid(orderNumber) {
-  return setOrderStatus({ orderNumber, status: 'Pending' });
+  return { updated: false, status: null, skipped: 'order status is manual now' };
 }
 
 // Pure: map a HubSpot webhook event -> an action. Returns null for irrelevant events.

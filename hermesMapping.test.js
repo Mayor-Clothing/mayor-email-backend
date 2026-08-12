@@ -1,6 +1,6 @@
 // Runnable check for the HubSpot->render mapping. No framework: `node hermesMapping.test.js`.
 const assert = require('assert');
-const { dealToRenderPayload, INVOICE_PROPERTIES } = require('./hermesMapping');
+const { dealToRenderPayload, INVOICE_PROPERTIES, statusToLabel, statusToValue } = require('./hermesMapping');
 
 const deal = {
   id: 'D123',
@@ -135,5 +135,13 @@ assert.ok(INVOICE_PROPERTIES.includes('print_background'));
 assert.ok(INVOICE_PROPERTIES.includes('zf_delivered_date'));
 assert.ok(INVOICE_PROPERTIES.includes('rush_fee'));
 assert.strictEqual(p.rush_fee, 150);
+
+// Order Status: HubSpot stores the option VALUE; the sheet/portal show the LABEL.
+assert.strictEqual(statusToLabel('Pending'), 'In Progress');
+assert.strictEqual(statusToLabel('Shipped'), 'In Transit');
+assert.strictEqual(statusToLabel('Awaiting Payment'), 'Awaiting Payment');
+assert.strictEqual(statusToValue('In Transit'), 'Shipped', 'write-back uses the VALUE HubSpot accepts');
+assert.strictEqual(statusToValue('Delivered'), 'Delivered');
+assert.strictEqual(dealToRenderPayload({ properties: { order_status: 'Pending' } }, 'invoice').order_status, 'In Progress');
 
 console.log('hermesMapping.test.js: all assertions passed');

@@ -37,7 +37,8 @@ function credsPresent() {
 // an invoice for an already-paid/delivered order silently resets it to Awaiting
 // Payment. Rank blank/unknown as 0 so a first write always lands.
 const STATUS_RANK = {
-  'awaiting customer approval': 1, 'awaiting payment': 2, 'pending': 3, 'paid': 3,
+  'awaiting approval': 1, 'awaiting customer approval': 1, 'awaiting payment': 2,
+  'in progress': 3, 'pending': 3, 'paid': 3,
   'in transit': 4, 'shipped': 4, 'delivered': 5,
 };
 const statusRank = (s) => STATUS_RANK[String(s || '').trim().toLowerCase()] || 0;

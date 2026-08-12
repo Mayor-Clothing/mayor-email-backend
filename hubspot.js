@@ -91,6 +91,17 @@ async function clearDealTrigger(dealId, propertyName) {
   });
 }
 
+// Write the Order Status dropdown back to the deal (auto In Transit / Delivered),
+// so HubSpot matches the sheet. `value` must be an option VALUE (e.g. 'Shipped'),
+// not its display label ('In Transit') — HubSpot rejects unknown enum values.
+// order_status isn't a webhook-watched trigger, so this can't loop.
+async function setDealOrderStatus(dealId, value) {
+  return hubspotFetch(`/crm/v3/objects/deals/${dealId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: { order_status: value } }),
+  });
+}
+
 async function markDealFollowUpSent(dealId) {
   return hubspotFetch(`/crm/v3/objects/deals/${dealId}`, {
     method: 'PATCH',
@@ -124,6 +135,7 @@ module.exports = {
   getDeal,
   getInvoiceDeal,
   clearDealTrigger,
+  setDealOrderStatus,
   searchDeals,
   getContact,
   getPrimaryContactId,
