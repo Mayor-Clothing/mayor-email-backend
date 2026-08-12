@@ -8,34 +8,25 @@
 // This file is duplicated verbatim in both repos (like doc-render.js). Keep the
 // copies identical.
 
+// HubSpot deal-card order (reordered 2026-08-12; scripts/reorder-sheet-columns.js
+// migrated the live data in lockstep). Deal ID/Name/Stage stay first so the upsert
+// still keys on deal_id at col A and order_number at col F. Per-item block matches
+// the deal card: Product · Mockup · Product Page · Description · Sizes · Quantity ·
+// Orig Price · Price. Order-level product_page (legacy fallback) + drive_pdf_link
+// trail at the end (not shown on the deal card).
 const COLUMNS = [
-  'deal_id', 'deal_name', 'deal_stage', 'tracking_number', 'customer_email',
-  'order_number', 'product_page', 'print_background', 'club', 'shipping_address',
-  'address', 'ship_date', 'in_hand_date', 'payment_terms',
-  // Line items x5 — the Deals tab's quirky order: slots 1-3 are
-  // url/desc/sizes/qty/price; slots 4-5 group url/desc/sizes, then their
-  // qty/price come after slot 5's sizes.
-  'p1_url', 'p1_desc', 'p1_sizes', 'p1_qty', 'p1_price',
-  'p2_url', 'p2_desc', 'p2_sizes', 'p2_qty', 'p2_price',
-  'p3_url', 'p3_desc', 'p3_sizes', 'p3_qty', 'p3_price',
-  'p4_url', 'p4_desc', 'p4_sizes',
-  'p5_url', 'p5_desc', 'p5_sizes',
-  'p4_qty', 'p4_price', 'p5_qty', 'p5_price',
+  'deal_id', 'deal_name', 'deal_stage',
+  'tracking_number', 'customer_email', 'order_number', 'club', 'shipping_address',
+  'address', 'ship_date', 'in_hand_date', 'print_background',
+  'p1_url', 'p1_mockup', 'p1_product_page', 'p1_desc', 'p1_sizes', 'p1_qty', 'orig_price_1', 'p1_price',
+  'p2_url', 'p2_mockup', 'p2_product_page', 'p2_desc', 'p2_sizes', 'p2_qty', 'orig_price_2', 'p2_price',
+  'p3_url', 'p3_mockup', 'p3_product_page', 'p3_desc', 'p3_sizes', 'p3_qty', 'orig_price_3', 'p3_price',
+  'p4_url', 'p4_mockup', 'p4_product_page', 'p4_desc', 'p4_sizes', 'p4_qty', 'orig_price_4', 'p4_price',
+  'p5_url', 'p5_mockup', 'p5_product_page', 'p5_desc', 'p5_sizes', 'p5_qty', 'orig_price_5', 'p5_price',
   'subtotal_quantity', 'subtotal', 'embroidery', 'art_setup', 'sample_reimbursement',
-  'custom_label', 'shipping', 'total', 'payment_link', 'payment_link_2',
-  'strike_embroidery', 'strike_art', 'strike_shipping',
-  'orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_price_4', 'orig_price_5',
-  'drive_pdf_link',
-  // Appended after the original 58 (drive_pdf_link) so existing column positions
-  // never shift. Rush Fee (BG) — a deal-level surcharge like Shipping.
-  'rush_fee',
-  // Per-line-item fields sourced from new HubSpot props (product_page_N/mockup_N).
-  // Appended (never inserted) so the columns above keep their positions. NOTE:
-  // these live in the BG+ range that also holds legacy pre-reorg debris on old
-  // rows — a fresh write overwrites its own row, but stale rows may still carry
-  // junk here until that range is cleared.
-  'p1_product_page', 'p2_product_page', 'p3_product_page', 'p4_product_page', 'p5_product_page',
-  'p1_mockup', 'p2_mockup', 'p3_mockup', 'p4_mockup', 'p5_mockup',
+  'custom_label', 'rush_fee', 'shipping', 'strike_embroidery', 'strike_art', 'strike_shipping',
+  'total', 'payment_terms', 'payment_link', 'payment_link_2',
+  'product_page', 'drive_pdf_link',
 ];
 
 // name -> 0-based column index (for the reader).
