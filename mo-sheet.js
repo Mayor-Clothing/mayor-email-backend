@@ -1,5 +1,5 @@
 // Canonical MO-sheet detail-row layout for the Order Confirmations / Invoices
-// tabs (columns A..BF, 58 cells). SINGLE SOURCE OF TRUTH for column order: the
+// tabs (columns A..BQ, 69 cells). SINGLE SOURCE OF TRUTH for column order: the
 // two writers (mayor-email-backend googleStore.buildDetailRow and mayor-invoice
 // index.js appendOrderToSheet) and the reader (mayor-invoice portal.js
 // parseSheetRow) all derive column positions from here — a layout change is a
