@@ -91,8 +91,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
          .font('Times-Roman').text(': ' + order_number, { width: leftW });
       ly += doc.heightOfString('Order Number: ' + order_number, { width: leftW }) + 6;
 
-      const isClub = /club/i.test(club);
-      const clubLabel = isClub ? 'Club' : 'Client';
+      const clubLabel = 'Customer';
       doc.font('Times-Bold').text(clubLabel, margin, ly, { continued: true })
          .font('Times-Roman').text(': ', { continued: true });
       if (data.product_page) {
@@ -100,7 +99,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       } else {
         doc.text(club, { width: leftW });
       }
-      ly += doc.heightOfString('Club: ' + club, { width: leftW }) + 10;
+      ly += doc.heightOfString('Customer: ' + club, { width: leftW }) + 10;
 
       const hasShipping = shipping_address && shipping_address.trim() && shipping_address.trim() !== address.trim();
 
@@ -137,12 +136,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       let termsText;
       if (payment_terms && payment_terms.trim()) {
         // Custom terms from the form — use verbatim, append W-9 reference
-        termsText = payment_terms.trim().replace(/\.$/, '') + '. Based on our custom model, garments are produced specially for each ' + (isClub ? 'club' : 'client') + '. Once ' + (isClub ? 'clubs' : 'clients') + ' approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
+        termsText = payment_terms.trim().replace(/\.$/, '') + '. Based on our custom model, garments are produced specially for each customer. Once customers approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
       } else {
         const leadIn = isSplitPayment ? '50% deposit, 50% on receipt. ' : 'Due on receipt. ';
-        termsText = leadIn + (isClub
-          ? 'Based on our custom model, garments are produced specially for each club. Once clubs approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. '
-          : 'Based on our custom model, garments are produced specially for each client. Once clients approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ');
+        termsText = leadIn + 'Based on our custom model, garments are produced specially for each customer. Once customers approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
       }
       doc.fontSize(8.5).font('Times-Roman').text(termsText, margin, ly, { width: leftW, continued: true })
          .text('Here', { continued: true, underline: true, link: w9_link })
@@ -211,9 +208,9 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.fontSize(8.5).font('Times-Roman').fillColor('#1a1a18');
         if (imgBuf) {
           try {
-            // Fill the product cell top-to-bottom so the polo runs the full row
-            // height instead of a small thumbnail with dead space beneath it.
-            doc.image(imgBuf, cP + 3, ry + 4, { width: pW - 6, height: rowH - 8, link: item.product_page || data.product_page || '' });
+            // Fit within the cell preserving aspect ratio (never stretch/squish);
+            // centered, so a portrait/landscape mockup keeps its true proportions.
+            doc.image(imgBuf, cP + 3, ry + 4, { fit: [pW - 6, rowH - 8], align: 'center', valign: 'center', link: item.product_page || data.product_page || '' });
           } catch (e) {
             doc.text(item.product || '', cP + 3, ry + 7, { width: pW - 6, underline: false });
           }
