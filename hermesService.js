@@ -15,10 +15,14 @@ const TRIGGER = {
   delivered: 'zf_delivered_date',
 };
 
-// Idempotency across route + webhook + poll (one process). ponytail: in-memory,
-// resets on restart; the persistent backstop is the MO-sheet row itself (the poll
-// gates on it). Upgrade to a Drive snapshot only if restarts cause real churn.
-const seenKeys = new Set();
+// Short-window dedup so a webhook and a near-simultaneous poll don't double-run
+// the SAME trigger. Deliberately time-boxed (NOT permanent): an intentional
+// re-trigger later — Matt re-checks "Send Order Confirmation" to push a HubSpot
+// edit into the sheet/PDF — must actually regenerate. The backstop against the
+// hourly poll re-firing is clearDealTrigger clearing the checkbox after each run
+// (needs deals-write scope on the private app).
+const DEDUP_TTL_MS = 2 * 60 * 1000;
+const seenAt = new Map(); // key -> last-generated epoch ms
 
 // docType: 'order_confirmation' | 'invoice'
 async function generateDocument({ dealId, docType, idempotencyKey }) {
@@ -36,13 +40,14 @@ async function generateDocument({ dealId, docType, idempotencyKey }) {
   }
 
   const key = idempotencyKey || `${orderNumber}:${docType}`;
-  if (seenKeys.has(key)) {
+  const last = seenAt.get(key);
+  if (last && Date.now() - last < DEDUP_TTL_MS) {
     return { ok: true, docType, orderNumber, skipped: true };
   }
 
   const pdf = await renderInvoicePdf(payload);
   const persist = await persistOrder({ payload, docType, pdfBuffer: pdf });
-  seenKeys.add(key);
+  seenAt.set(key, Date.now());
 
   // Clear the trigger checkbox now that this doc exists, so the hourly poll
   // stops re-generating it every run (best-effort: needs deals-write scope on
