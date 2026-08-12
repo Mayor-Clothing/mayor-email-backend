@@ -13,6 +13,7 @@
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 const { buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
+const { parseShipDate } = require('./hubspotFormat');
 
 // No fallback: the old hardcoded id ('152hyxQz…') is the DEAD pre-reorg sheet.
 // A missing MO_SHEET_ID must fail loudly (see getClients), never silently write
@@ -202,9 +203,9 @@ async function uploadPdfToDrive(drive, orderNumber, docType, pdfBuffer) {
 // Returns { persisted, status, driveFileId, pdfUrl } — never throws (logs + degrades).
 async function persistOrder({ payload, docType, pdfBuffer }) {
   // Status is the manual HubSpot "Order Status" dropdown now — no longer derived
-  // from docType. Default to Awaiting Approval only for a brand-new order whose
-  // dropdown hasn't been set yet.
-  const status = payload.order_status || 'Awaiting Approval';
+  // from docType. Default to Awaiting Customer Approval only for a brand-new
+  // order whose dropdown hasn't been set yet.
+  const status = payload.order_status || 'Awaiting Customer Approval';
   if (!credsPresent()) {
     return { persisted: false, status, driveFileId: null, pdfUrl: null, skipped: 'no google credentials' };
   }
@@ -275,7 +276,10 @@ async function setOrderStatus({ orderNumber, status, tracking, deliveredDate }) 
     const data = [];
     if (statusRank(status) > statusRank(col[idx][4])) data.push({ range: `Order Info!E${row}`, values: [[sheetSafe(status)]] });
     if (tracking != null && tracking !== '') data.push({ range: `Order Info!F${row}`, values: [[sheetSafe(tracking)]] });
-    if (deliveredDate != null && deliveredDate !== '') data.push({ range: `Order Info!G${row}`, values: [[sheetSafe(deliveredDate)]] });
+    // Format like every other date on the sheet ("Monday, July 27, 2026"); the
+    // trigger hands us the raw HubSpot value ("2026-08-12"). parseShipDate is
+    // idempotent, so an already-formatted date passes through unchanged.
+    if (deliveredDate != null && deliveredDate !== '') data.push({ range: `Order Info!G${row}`, values: [[sheetSafe(parseShipDate(deliveredDate) || deliveredDate)]] });
     if (data.length === 0) return { updated: false, status, skipped: 'no forward change' };
 
     await sheets.spreadsheets.values.batchUpdate({

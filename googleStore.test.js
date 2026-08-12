@@ -95,12 +95,12 @@ assert.strictEqual(matchRowIndex(infoRows, 7, 0, 'D2', 'Nope'), -1, 'Order Info 
 (async () => {
   assert.strictEqual(credsPresent(), false, 'test env should have no GOOGLE_SERVICE_ACCOUNT_JSON');
   // Status is manual now: with no order_status set, both docTypes default to
-  // Awaiting Approval (invoice no longer auto-advances to Awaiting Payment).
+  // Awaiting Customer Approval (invoice no longer auto-advances to Awaiting Payment).
   const oc = await persistOrder({ payload, docType: 'order_confirmation', pdfBuffer: Buffer.from('x') });
   assert.strictEqual(oc.persisted, false);
-  assert.strictEqual(oc.status, 'Awaiting Approval');
+  assert.strictEqual(oc.status, 'Awaiting Customer Approval');
   const inv = await persistOrder({ payload, docType: 'invoice', pdfBuffer: Buffer.from('x') });
-  assert.strictEqual(inv.status, 'Awaiting Approval', 'invoice no longer forces Awaiting Payment');
+  assert.strictEqual(inv.status, 'Awaiting Customer Approval', 'invoice no longer forces Awaiting Payment');
   // The HubSpot dropdown drives the status verbatim when set.
   const withStatus = await persistOrder({ payload: { ...payload, order_status: 'Delivered' }, docType: 'invoice', pdfBuffer: Buffer.from('x') });
   assert.strictEqual(withStatus.status, 'Delivered');
