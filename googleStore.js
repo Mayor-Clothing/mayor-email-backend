@@ -200,7 +200,10 @@ async function uploadPdfToDrive(drive, orderNumber, docType, pdfBuffer) {
 // Orchestrator. payload = doc-render payload; docType = 'order_confirmation'|'invoice'.
 // Returns { persisted, status, driveFileId, pdfUrl } — never throws (logs + degrades).
 async function persistOrder({ payload, docType, pdfBuffer }) {
-  const status = docType === 'invoice' ? 'Awaiting Payment' : 'Awaiting Customer Approval';
+  // Status is the manual HubSpot "Order Status" dropdown now — no longer derived
+  // from docType. Default to Awaiting Approval only for a brand-new order whose
+  // dropdown hasn't been set yet.
+  const status = payload.order_status || 'Awaiting Approval';
   if (!credsPresent()) {
     return { persisted: false, status, driveFileId: null, pdfUrl: null, skipped: 'no google credentials' };
   }
@@ -230,9 +233,12 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       // Rename / legacy-adopt: keep order_number (A) and deal_id (H) current.
       if (String(row[0] || '') !== String(orderNumber)) updates.push({ range: `Order Info!A${targetRow}`, values: [[sheetSafe(orderNumber)]] });
       if (dealId && String(row[INFO_DEAL_COL] || '') !== String(dealId)) updates.push({ range: `Order Info!H${targetRow}`, values: [[sheetSafe(dealId)]] });
-      // Advance status only forward — regenerating an invoice must not regress a
-      // paid/delivered order (F3).
-      if (docType === 'invoice' && statusRank(status) > statusRank(row[4])) updates.push({ range: `Order Info!E${targetRow}`, values: [[sheetSafe(status)]] });
+      // Manual dropdown status is authoritative — write it whenever it's set and
+      // differs (any direction, so Matt can correct it). A blank dropdown leaves
+      // whatever's already on the sheet untouched.
+      if (payload.order_status && String(row[4] || '') !== payload.order_status) {
+        updates.push({ range: `Order Info!E${targetRow}`, values: [[sheetSafe(payload.order_status)]] });
+      }
       if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, resource: { valueInputOption: 'USER_ENTERED', data: updates } });
     }
 

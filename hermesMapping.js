@@ -30,7 +30,7 @@ const INVOICE_PROPERTIES = [
   // properties; zg_tracking_number is Matt's tracking-number field, also used
   // as the "in transit" trigger elsewhere; print_background is Matt's print
   // swatch/background image property).
-  'dealname', 'dealstage', 'zg_tracking_number', 'print_background',
+  'dealname', 'dealstage', 'order_status', 'zg_tracking_number', 'print_background',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.
@@ -120,6 +120,7 @@ function dealToRenderPayload(deal, docType) {
     deal_id: deal?.id || '',
     deal_name: p.dealname || '',
     deal_stage: p.dealstage || '',
+    order_status: (p.order_status || '').trim(),   // manual "Order Status" dropdown -> sheet status
     tracking_number: p.zg_tracking_number || '',
     print_background: p.print_background || '',
     order_number: p.order_number || '',
