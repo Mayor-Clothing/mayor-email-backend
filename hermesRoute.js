@@ -59,13 +59,44 @@ function refreshRateLimit(req, res, next) {
   next();
 }
 
-router.post('/refresh', refreshRateLimit, (req, res) => {
+// The button lives on a public page and gets no key, so these two routes are
+// CORS-open. They expose counts only — never order numbers (see /refresh/last,
+// which is key-protected for that).
+const publicCors = (_req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  next();
+};
+router.options('/refresh', publicCors, (_req, res) => res.sendStatus(204));
+
+// Recent runs, so the page can report what actually happened instead of "Sent".
+const runs = new Map();
+const RUN_TTL_MS = 30 * 60 * 1000;
+
+router.post('/refresh', publicCors, refreshRateLimit, (req, res) => {
   // Respond right away so closing the tab can't cancel the work; the reconcile
   // runs in the background. Matt clicks and x's out — that's the intended flow.
-  res.status(202).json({ ok: true, message: 'Refresh received — Hermes is checking HubSpot for edits.' });
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  runs.set(runId, { state: 'running', startedAt: Date.now() });
+  for (const [id, r] of runs) if (Date.now() - r.startedAt > RUN_TTL_MS) runs.delete(id);
+
+  res.status(202).json({ ok: true, runId, message: 'Refresh received — Hermes is checking HubSpot for edits.' });
   refreshModifiedDeals()
-    .then((s) => console.log('refresh done:', JSON.stringify(s)))
-    .catch((e) => console.error('refresh failed:', e.message));
+    .then((s) => {
+      console.log('refresh done:', JSON.stringify(s));
+      runs.set(runId, { state: 'done', startedAt: runs.get(runId)?.startedAt || Date.now(), checked: s.checked, updated: (s.regenerated || []).length, errors: s.errors, failed: !!s.error });
+    })
+    .catch((e) => {
+      console.error('refresh failed:', e.message);
+      runs.set(runId, { state: 'done', startedAt: runs.get(runId)?.startedAt || Date.now(), checked: 0, updated: 0, errors: 1, failed: true });
+    });
+});
+
+// Counts only — safe for the public page to poll.
+router.get('/refresh/status/:runId', publicCors, (req, res) => {
+  const run = runs.get(req.params.runId);
+  if (!run) return res.status(404).json({ state: 'unknown' });
+  res.status(200).json(run);
 });
 
 // What did the last refresh actually do? The button answers 202 before the work
