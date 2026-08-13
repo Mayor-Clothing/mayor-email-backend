@@ -180,8 +180,18 @@ async function runPoll() {
 // premature OC/Invoice for a deal that was merely edited mid-stage), and never
 // PATCHes the deal (skipClearTrigger) so a refresh can't loop back on itself.
 let lastRefreshTs = Date.now() - 24 * 60 * 60 * 1000; // cold start: cover the last 24h
+// HubSpot's search index lags behind writes by seconds to minutes. Without an
+// overlap, an edit made just before a click isn't indexed yet, the window still
+// advances past it, and NO later click will ever pick it up — the button looks
+// like it "doesn't work sometimes". Re-examining a few extra minutes is cheap:
+// regenerating a doc is an upsert.
+const REFRESH_GRACE_MS = 10 * 60 * 1000;
+let lastRefreshSummary = null;
+const getLastRefreshSummary = () => lastRefreshSummary;
+
 async function refreshModifiedDeals() {
-  const since = lastRefreshTs;
+  const runId = Date.now();
+  const since = lastRefreshTs - REFRESH_GRACE_MS;
   const summary = { checked: 0, regenerated: [], errors: 0 };
   let deals;
   try {
@@ -203,12 +213,16 @@ async function refreshModifiedDeals() {
     for (const docType of ['order_confirmation', 'invoice']) {
       if (!(docType === 'invoice' ? presence.invoice : presence.oc)) continue;
       try {
-        await generateDocument({ dealId: d.id, docType, skipClearTrigger: true });
+        // Unique key per run: the 2-minute dedup exists to stop a webhook and a
+        // poll double-firing, but it must never swallow an explicit human click
+        // (the "it didn't work, click it again" retry landed inside that window).
+        await generateDocument({ dealId: d.id, docType, skipClearTrigger: true, idempotencyKey: `refresh:${runId}:${d.id}:${docType}` });
         summary.regenerated.push(`${orderNumber || d.id}:${docType === 'invoice' ? 'inv' : 'oc'}`);
       } catch (e) { summary.errors += 1; console.error(`refresh regen ${d.id} ${docType}:`, e.message); }
     }
   }
+  lastRefreshSummary = { ...summary, finishedAt: new Date().toISOString(), windowStart: new Date(since).toISOString() };
   return summary;
 }
 
-module.exports = { generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, refreshModifiedDeals, TRIGGER };
+module.exports = { generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, refreshModifiedDeals, getLastRefreshSummary, TRIGGER };

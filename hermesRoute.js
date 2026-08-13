@@ -1,6 +1,6 @@
 const express = require('express');
 const { config, assertConfigured } = require('./config');
-const { generateDocument, runPoll, refreshModifiedDeals } = require('./hermesService');
+const { generateDocument, runPoll, refreshModifiedDeals, getLastRefreshSummary } = require('./hermesService');
 const { requireInternalAuth } = require('./internalAuth');
 
 const router = express.Router();
@@ -66,6 +66,13 @@ router.post('/refresh', refreshRateLimit, (req, res) => {
   refreshModifiedDeals()
     .then((s) => console.log('refresh done:', JSON.stringify(s)))
     .catch((e) => console.error('refresh failed:', e.message));
+});
+
+// What did the last refresh actually do? The button answers 202 before the work
+// runs, so this is the only way to tell "nothing had changed" from "it failed".
+// Key-protected: the summary lists order numbers and mayor-tools is public.
+router.get('/refresh/last', requireInternalAuth, (_req, res) => {
+  res.status(200).json(getLastRefreshSummary() || { message: 'no refresh has run since the last restart' });
 });
 
 module.exports = router;
