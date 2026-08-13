@@ -21,8 +21,8 @@ const MOCKUP_PROPS = ['mockup_1', 'mockup_2', 'mockup_3', 'mockup_4', 'mockup_5'
 // old values. Everything human-facing (sheet, portal, HubSpot UI) shows the
 // LABEL; HubSpot's API reads/writes the VALUE. Map both ways — update if the
 // dropdown options ever change again.
-const STATUS_VALUE_TO_LABEL = { Pending: 'In Progress', Shipped: 'In Transit' };
-const STATUS_LABEL_TO_VALUE = { 'In Progress': 'Pending', 'In Transit': 'Shipped' };
+const STATUS_VALUE_TO_LABEL = { Pending: 'In Progress', Shipped: 'In Transit', 'Awaiting Approval': 'Awaiting Customer Approval' };
+const STATUS_LABEL_TO_VALUE = { 'In Progress': 'Pending', 'In Transit': 'Shipped', 'Awaiting Customer Approval': 'Awaiting Approval' };
 const statusToLabel = (v) => { const s = String(v == null ? '' : v).trim(); return STATUS_VALUE_TO_LABEL[s] || s; };
 const statusToValue = (l) => { const s = String(l == null ? '' : l).trim(); return STATUS_LABEL_TO_VALUE[s] || s; };
 
