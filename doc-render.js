@@ -19,6 +19,17 @@ const DEFAULT_W9 = 'https://drive.google.com/file/d/1iZD_sP2WQbfPrXkHIcPqf7XawDM
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGES = 6;
 
+// Address blocks arrive with their parts separated by newlines, but some carry a
+// vertical tab (\v, a HubSpot multiline artefact) and a leading "/" instead — those
+// rendered as one long unbroken line. Treat every break character as a line break
+// and drop the leftover separator slash.
+function addressLines(block) {
+  return String(block == null ? '' : block)
+    .split(/[\n\v\r\u2028\u2029]+/)
+    .map((s) => s.trim().replace(/^\/\s*/, '').trim())
+    .filter(Boolean);
+}
+
 async function fetchImageBuffer(url) {
   if (typeof url !== 'string') return null;
   let parsed;
@@ -127,7 +138,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       ly += 13;
 
       // Split address on newlines only — launcher handles the formatting
-      const addrLines = address.split(/\n/).map(s => s.trim()).filter(Boolean);
+      const addrLines = addressLines(address);
       addrLines.forEach(line => {
         doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
         // Advance by what the line ACTUALLY occupied. A long line (an address whose
@@ -140,7 +151,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       if (hasShipping) {
         doc.font('Times-Bold').fontSize(9.5).text('Shipping Address:', margin, ly, { width: leftW });
         ly += 13;
-        const shipLines = shipping_address.split(/\n/).map(s => s.trim()).filter(Boolean);
+        const shipLines = addressLines(shipping_address);
         shipLines.forEach(line => {
           doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
           ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
