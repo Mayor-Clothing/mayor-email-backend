@@ -56,7 +56,9 @@ assert.strictEqual(row[COL.total], 2276);
 assert.strictEqual(row[COL.payment_link], 'https://nickel.com/a');
 assert.strictEqual(row[COL.payment_link_2], 'https://nickel.com/b');
 assert.strictEqual(row[COL.strike_embroidery], '1');
-assert.strictEqual(row[COL.strike_art], '');
+// Explicitly-not-struck writes '0', never blank: a blank cell means "never set"
+// and the portal falls back to its legacy default (struck for art/embroidery).
+assert.strictEqual(row[COL.strike_art], '0');
 assert.strictEqual(row[COL.strike_shipping], '1');
 assert.strictEqual(row[COL.drive_pdf_link], 'https://drive.google.com/file/d/abc/view');
 assert.strictEqual(row[COL.p1_product_page], 'https://x/details1');

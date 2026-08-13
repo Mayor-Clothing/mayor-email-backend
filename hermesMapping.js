@@ -74,6 +74,10 @@ function dealToRenderPayload(deal, docType) {
     line_items.push({
       product: isUrl ? 'Custom Print Polo' : (rawProduct || 'Custom Print Polo'),
       url: isUrl ? rawProduct : '',
+      // The typed-in name, empty when the slot holds an image URL instead. The
+      // sheet's Product N column doubles as name-or-URL (portal.html nameLabel),
+      // so this is what lands there when there's no image to show.
+      product_name: isUrl ? '' : rawProduct,
       description: desc,           // sizes kept separate now (own sheet column + re-merged at render)
       sizes,
       quantity: qty,

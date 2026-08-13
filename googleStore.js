@@ -100,6 +100,7 @@ function effectiveSubtotalAndTotal(p) {
 function buildDetailRow(p, driveLink) {
   const items = p.line_items || [];
   const get = (i, key) => (items[i] ? (items[i][key] || '') : '');
+  const nameOrUrl = (i) => get(i, 'url') || get(i, 'product_name');
   const subtotalQty = p.subtotal_quantity != null ? p.subtotal_quantity : items.reduce((s, li) => s + (Number(li.quantity) || 0), 0);
   const { subtotal: effSubtotal, total: effTotal } = effectiveSubtotalAndTotal(p);
   // Column order lives in mo-sheet.js — reference cells by name, never position.
@@ -109,18 +110,26 @@ function buildDetailRow(p, driveLink) {
     print_background: p.print_background || '',
     club: p.club || '', shipping_address: p.shipping_address || '', address: p.address || '',
     ship_date: p.ship_date || '', in_hand_date: p.in_hand_date || '', payment_terms: p.payment_terms || '',
-    p1_url: get(0, 'url'), p1_desc: get(0, 'description'), p1_sizes: get(0, 'sizes'), p1_qty: get(0, 'quantity'), p1_price: get(0, 'price'),
-    p2_url: get(1, 'url'), p2_desc: get(1, 'description'), p2_sizes: get(1, 'sizes'), p2_qty: get(1, 'quantity'), p2_price: get(1, 'price'),
-    p3_url: get(2, 'url'), p3_desc: get(2, 'description'), p3_sizes: get(2, 'sizes'), p3_qty: get(2, 'quantity'), p3_price: get(2, 'price'),
-    p4_url: get(3, 'url'), p4_desc: get(3, 'description'), p4_sizes: get(3, 'sizes'),
-    p5_url: get(4, 'url'), p5_desc: get(4, 'description'), p5_sizes: get(4, 'sizes'),
+    // Product N column is name-or-URL: the image URL when there is one, else the
+    // typed product name (portal.html nameLabel reads the same cell both ways).
+    // Without the fallback a named slot landed blank and the portal showed the
+    // generic "Custom Print Polo" instead of the name Matt typed in HubSpot.
+    p1_url: nameOrUrl(0), p1_desc: get(0, 'description'), p1_sizes: get(0, 'sizes'), p1_qty: get(0, 'quantity'), p1_price: get(0, 'price'),
+    p2_url: nameOrUrl(1), p2_desc: get(1, 'description'), p2_sizes: get(1, 'sizes'), p2_qty: get(1, 'quantity'), p2_price: get(1, 'price'),
+    p3_url: nameOrUrl(2), p3_desc: get(2, 'description'), p3_sizes: get(2, 'sizes'), p3_qty: get(2, 'quantity'), p3_price: get(2, 'price'),
+    p4_url: nameOrUrl(3), p4_desc: get(3, 'description'), p4_sizes: get(3, 'sizes'),
+    p5_url: nameOrUrl(4), p5_desc: get(4, 'description'), p5_sizes: get(4, 'sizes'),
     p4_qty: get(3, 'quantity'), p4_price: get(3, 'price'), p5_qty: get(4, 'quantity'), p5_price: get(4, 'price'),
     subtotal_quantity: subtotalQty || '', subtotal: effSubtotal || '',
     embroidery: p.embroidery || '',
     art_setup: (p.art_setup != null ? parseFloat(String(p.art_setup).replace(/[$,\s]/g, '')) || '' : ''),
     sample_reimbursement: p.sample_reimbursement || '', custom_label: p.custom_label || '', shipping: p.shipping || '', total: effTotal || '',
     payment_link: p.payment_link || '', payment_link_2: p.payment_link_2 || '',
-    strike_embroidery: p.strike_embroidery ? '1' : '', strike_art: p.strike_art ? '1' : '', strike_shipping: p.strike_shipping ? '1' : '',
+    // Write an explicit '0' for "not struck" — a BLANK cell means "never set" and
+    // the portal falls back to the legacy default (waived for emb/art, charged for
+    // shipping, portal.js strikeCell). Collapsing false into '' made an explicitly
+    // unstruck fee render struck in the portal while the total charged it.
+    strike_embroidery: p.strike_embroidery ? '1' : '0', strike_art: p.strike_art ? '1' : '0', strike_shipping: p.strike_shipping ? '1' : '0',
     orig_price_1: get(0, 'orig_price') || '', orig_price_2: get(1, 'orig_price') || '', orig_price_3: get(2, 'orig_price') || '', orig_price_4: get(3, 'orig_price') || '', orig_price_5: get(4, 'orig_price') || '',
     drive_pdf_link: driveLink || '',
     rush_fee: p.rush_fee || '',
