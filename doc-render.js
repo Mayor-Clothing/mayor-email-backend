@@ -66,13 +66,11 @@ async function fetchImageBuffer(url) {
 // data = the /generate payload (see blueprint §5.2). logoPath lets a consuming
 // repo point at its own copy of the logo; defaults to the one beside this module.
 async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
-  // Pre-fetch product + mockup images as buffers (bounded — 5 slots). Mockup
-  // column mirrors the order page.
+  // Pre-fetch product images as buffers (bounded — 5 slots). Mockups are
+  // deliberately NOT rendered here: they live on the order page only, so the
+  // downloaded document stays lean (and skips five image fetches per render).
   const imageBuffers = await Promise.all(
     (data.line_items || []).map((item, i) => (i < MAX_IMAGES ? fetchImageBuffer(item.url) : null))
-  );
-  const mockupBuffers = await Promise.all(
-    (data.line_items || []).map((item, i) => (i < MAX_IMAGES ? fetchImageBuffer(item.mockup) : null))
   );
   const {
     order_number = '', club = '', address = '', shipping_address = '', ship_date = '',
@@ -208,18 +206,16 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       let ry = bodyY;
 
       // Product is a text name ~90% of the time (e.g. "Men's Custom Print Polo"),
-      // so it gets a text-width column; Mockup is a small image thumbnail. Widths
-      // are tight because this table is only ~300pt wide.
+      // so it gets a text-width column. Widths are tight because this table is
+      // only ~300pt wide; the freed mockup width goes to Description.
       const pW = 62;
-      const mW = 40;
       const qW = 38;
       const prW = 42;
       const aW = 50;
-      const dW = rightW - pW - mW - qW - prW - aW;
+      const dW = rightW - pW - qW - prW - aW;
 
       const cP  = rightX;
-      const cM  = cP + pW;
-      const cD  = cM + mW;
+      const cD  = cP + pW;
       const cQ  = cD + dW;
       const cPr = cQ + qW;
       const cA  = cPr + prW;
@@ -229,7 +225,6 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       doc.rect(rightX, ry, rightW, hH).fill('#1a1a18');
       doc.fillColor('white').fontSize(8.5).font('Times-Bold');
       doc.text('Product',     cP + 3,  ry + 5, { width: pW - 3 });
-      doc.text('Mockup',      cM + 3,  ry + 5, { width: mW - 3 });
       doc.text('Description', cD + 3,  ry + 5, { width: dW - 3 });
       doc.text('Quantity',    cQ,       ry + 5, { width: qW,      align: 'right' });
       doc.text('Price',       cPr,      ry + 5, { width: prW,     align: 'right' });
@@ -244,12 +239,11 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         // cell is byte-identical to the old merged description (sizes last, \n-joined).
         const descText = [((item.description || '').replace(/\\n/g, '\n').replace(/ \/ /g, '\n')), item.sizes].filter(Boolean).join('\n');
         const imgBuf = imageBuffers[i] || null;
-        const mockBuf = mockupBuffers[i] || null;
         const imgSize = 52; // thumbnail size in points
         const descH = doc.fontSize(8.5).heightOfString(descText, { width: dW - 8, lineGap: 1.5 });
         const hasDualPrice = item.orig_price && Number(item.orig_price) > 0;
         const prodH = doc.fontSize(8.5).heightOfString(item.product || '', { width: pW - 6 });
-        const rowH = Math.max((imgBuf || mockBuf) ? imgSize + 10 : 0, descH + 14, prodH + 14, hasDualPrice ? 40 : 26);
+        const rowH = Math.max(imgBuf ? imgSize + 10 : 0, descH + 14, prodH + 14, hasDualPrice ? 40 : 26);
 
         if (i % 2 === 1) {
           doc.rect(rightX, ry, rightW, rowH).fill('#f9f9f8').fillColor('#1a1a18');
@@ -267,12 +261,6 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           }
         } else {
           doc.text(item.product || '', cP + 3, ry + 7, { width: pW - 6, underline: false });
-        }
-        // Mockup column — its own image (blank if the item has no mockup).
-        if (mockBuf) {
-          try {
-            doc.image(mockBuf, cM + 3, ry + 4, { fit: [mW - 6, rowH - 8], align: 'center', valign: 'center', link: item.mockup || '' });
-          } catch (e) { /* skip a bad mockup image */ }
         }
         doc.text(descText, cD + 3, ry + 7, { width: dW - 6, lineGap: 1.5 });
         doc.text(String(item.quantity || ''), cQ,  ry + 7, { width: qW,     align: 'right' });
