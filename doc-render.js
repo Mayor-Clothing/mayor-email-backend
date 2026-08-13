@@ -292,7 +292,11 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const rH = 17;
         doc.rect(rightX, ry, rightW, rH).lineWidth(0.4).stroke('#cccccc');
         doc.fontSize(8.5).font('Times-Bold').fillColor('#1a1a18')
-           .text(label, cD, ry + 5, { width: dW, align: 'right' });
+        // A totals row has no quantity cell, so the label gets the full width up to
+        // the amount column instead of just the (narrow) description column. Rows
+        // are a fixed height: a long label like "Sample Reimbursement" or "Custom
+        // Main Label" used to wrap and spill its second line over the row below.
+           .text(label, rightX + 3, ry + 5, { width: cA - rightX - 6, align: 'right', lineBreak: false });
         doc.font('Times-Roman').text(value, cA, ry + 5, { width: aW - 2, align: 'right' });
         if (strike) {
           const tw = doc.widthOfString(value);
@@ -349,7 +353,9 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       if (custom_label) drawRow('Custom Main Label', '$' + Number(custom_label).toFixed(2));
       drawRow('Shipping', '$' + Number(shipping).toFixed(0), strike_shipping);
       if (rush_fee && num(rush_fee) !== 0) drawRow('Rush Fee', '$' + Number(rush_fee).toFixed(0));
-      if (sample_reimbursement) drawRow('Sample Reimbursement', sample_reimbursement);
+      // Guard on the NUMBER: the sheet stores "0", which is a truthy string and
+      // printed a bare unformatted 0 row.
+      if (num(sample_reimbursement) !== 0) drawRow('Sample Reimbursement', sample_reimbursement);
 
       // Total
       const totH = 18;
