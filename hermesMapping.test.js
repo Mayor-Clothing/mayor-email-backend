@@ -65,8 +65,8 @@ assert.strictEqual(p.line_items[1].sizes, '');
 assert.strictEqual(p.in_hand_date, 'Saturday, July 25, 2026');
 
 // Fees + cross-outs. Strike flags come from yes/no checkboxes; when a deal hasn't
-// set them the defaults hold (emb/art struck, shipping charged) and shipping still
-// honors the legacy `unstrike` field. This deal sets no strike_* booleans.
+// set them the defaults hold (emb/art struck, shipping charged). This deal sets
+// no strike_* booleans.
 assert.strictEqual(p.embroidery, 150);
 assert.strictEqual(p.strike_embroidery, true);
 assert.strictEqual(p.art_setup, -40);
@@ -99,28 +99,25 @@ assert.strictEqual(empty.line_items.length, 0);
 assert.strictEqual(empty.strike_embroidery, true);
 assert.strictEqual(empty.strike_art, true);
 assert.strictEqual(empty.strike_shipping, false);
-// Listing "shipping" waives shipping; emb/art stay waived regardless.
+// The legacy free-text `unstrike` field is no longer read at all: only the
+// checkboxes decide, so text mentioning shipping leaves shipping charged.
 const uns = dealToRenderPayload({ properties: { unstrike: 'Shipping' } }, 'invoice');
-assert.strictEqual(uns.strike_embroidery, true);
-assert.strictEqual(uns.strike_art, true);
-assert.strictEqual(uns.strike_shipping, true);
-// "Embroidery and Art Setup" (no shipping) => emb/art waived, shipping charged.
-const andForm = dealToRenderPayload({ properties: { unstrike: 'Embroidery and Art Setup' } }, 'invoice');
-assert.strictEqual(andForm.strike_embroidery, true);
-assert.strictEqual(andForm.strike_art, true);
-assert.strictEqual(andForm.strike_shipping, false);
-// Oxford-comma + "and Shipping" => shipping also waived.
+assert.strictEqual(uns.strike_embroidery, true, 'embroidery default still comped');
+assert.strictEqual(uns.strike_art, true, 'art default still comped');
+assert.strictEqual(uns.strike_shipping, false, 'unstrike text is inert now');
 const allForm = dealToRenderPayload({ properties: { unstrike: 'Embroidery, Art Setup, and Shipping' } }, 'invoice');
-assert.strictEqual(allForm.strike_shipping, true);
+assert.strictEqual(allForm.strike_shipping, false, 'no wording of unstrike can strike shipping');
 
 // Explicit yes/no strike checkboxes override the defaults so the total updates.
 const boolStrike = dealToRenderPayload({ properties: { strike_embroidery: 'false', strike_art: 'false', strike_shipping: 'true' } }, 'invoice');
 assert.strictEqual(boolStrike.strike_embroidery, false, 'checkbox No => embroidery charged');
 assert.strictEqual(boolStrike.strike_art, false, 'checkbox No => art charged');
 assert.strictEqual(boolStrike.strike_shipping, true, 'checkbox Yes => shipping struck');
-// An explicit strike_shipping boolean beats the legacy unstrike fallback.
 const shipFalse = dealToRenderPayload({ properties: { strike_shipping: 'false', unstrike: 'Shipping' } }, 'invoice');
-assert.strictEqual(shipFalse.strike_shipping, false, 'explicit strike_shipping=false overrides legacy unstrike');
+assert.strictEqual(shipFalse.strike_shipping, false, 'checkbox No keeps shipping charged');
+const shipTrue = dealToRenderPayload({ properties: { strike_shipping: 'true' } }, 'invoice');
+assert.strictEqual(shipTrue.strike_shipping, true, 'checkbox Yes is the only way to strike shipping');
+assert.ok(!INVOICE_PROPERTIES.includes('unstrike'), 'unstrike is no longer requested from HubSpot');
 assert.ok(INVOICE_PROPERTIES.includes('strike_embroidery'));
 assert.ok(INVOICE_PROPERTIES.includes('strike_art'));
 assert.ok(INVOICE_PROPERTIES.includes('strike_shipping'));

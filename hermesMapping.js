@@ -35,7 +35,7 @@ const INVOICE_PROPERTIES = [
   'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5',
   ...QTY_PROPS, ...PRICE_PROPS, ...ORIG_PRICE_PROPS, ...PRODUCT_PAGE_PROPS, ...MOCKUP_PROPS,
   'za_embroidery', 'zb_art_setup', 'z_sample_reimbursement', 'custom_main_label', 'shipping_cost',
-  'rush_fee', 'payment_terms', 'unstrike', 'strike_embroidery', 'strike_art', 'strike_shipping', 'zf_delivered_date',
+  'rush_fee', 'payment_terms', 'strike_embroidery', 'strike_art', 'strike_shipping', 'zf_delivered_date',
   // Deals-tab-mirrored sheet columns (dealname/dealstage are standard HubSpot
   // properties; zg_tracking_number is Matt's tracking-number field, also used
   // as the "in transit" trigger elsewhere; print_background is Matt's print
@@ -98,18 +98,15 @@ function dealToRenderPayload(deal, docType) {
   // total (downstream: doc-render, googleStore effectiveSubtotalAndTotal, portal).
   // Defaults when a deal hasn't set the box preserve the historical convention
   // and keep already-written orders unchanged on regen: Embroidery + Art comped
-  // (struck), Shipping charged. Shipping also still honors the legacy free-text
-  // `unstrike` ("Strike") field until deals adopt the checkbox.
-  const strikeStr = String(p.unstrike || '').toLowerCase();
+  // (struck), Shipping charged. The legacy free-text `unstrike` field is no
+  // longer read — the checkboxes are the only source now.
   const asBool = (v, dflt) => {
     const s = String(v == null ? '' : v).trim().toLowerCase();
     return s === '' ? dflt : (s === 'true' || s === 'yes' || s === '1');
   };
   const strikeEmb = asBool(p.strike_embroidery, true);
   const strikeArt = asBool(p.strike_art, true);
-  const strikeShip = (p.strike_shipping != null && String(p.strike_shipping).trim() !== '')
-    ? asBool(p.strike_shipping, false)
-    : /shipping/.test(strikeStr);
+  const strikeShip = asBool(p.strike_shipping, false);
 
   const emb = n(p.za_embroidery);
   const art = n(p.zb_art_setup);           // signed: negative = art credit
