@@ -25,15 +25,31 @@ async function fetchImageBuffer(url) {
   try { parsed = new URL(url); } catch (e) { return null; }
   if (parsed.protocol !== 'https:') return null;
   if (!/\.(png|jpe?g|webp)$/i.test(parsed.pathname)) return null;
-  try {
-    const r = await fetch(parsed.href, { redirect: 'error', signal: AbortSignal.timeout(8000) });
-    if (!r.ok) return null;
-    const len = Number(r.headers.get('content-length'));
-    if (Number.isFinite(len) && len > MAX_IMAGE_BYTES) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > MAX_IMAGE_BYTES) return null;
-    return buf;
-  } catch (e) { return null; }
+  // Shopify encodes the variant size in the filename (_5000x.png). The 5000px
+  // originals are 6-8MB -- over MAX_IMAGE_BYTES -- so they were silently dropped
+  // and the mockup just vanished from the PDF. Ask for a 600px variant (the cell renders ~40pt wide)
+  // first, fall back to the original when there's no size suffix to swap.
+  const candidates = [];
+  const smaller = parsed.pathname.replace(/_(\d{3,5})x(\.(?:png|jpe?g|webp))$/i,
+    (m, n, ext) => (Number(n) > 600 ? `_600x${ext}` : m));
+  if (smaller !== parsed.pathname) {
+    const alt = new URL(parsed.href);
+    alt.pathname = smaller;
+    candidates.push(alt.href);
+  }
+  candidates.push(parsed.href);
+  for (const href of candidates) {
+    try {
+      const r = await fetch(href, { redirect: 'error', signal: AbortSignal.timeout(8000) });
+      if (!r.ok) continue;
+      const len = Number(r.headers.get('content-length'));
+      if (Number.isFinite(len) && len > MAX_IMAGE_BYTES) { console.warn(`image too large, skipped: ${href} (${len} bytes)`); continue; }
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > MAX_IMAGE_BYTES) { console.warn(`image too large, skipped: ${href} (${buf.length} bytes)`); continue; }
+      return buf;
+    } catch (e) { /* try the next candidate */ }
+  }
+  return null;
 }
 
 // data = the /generate payload (see blueprint §5.2). logoPath lets a consuming
@@ -91,12 +107,12 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       // ── LEFT COLUMN ──
       let ly = bodyY;
 
-      doc.fontSize(9.5).font('Times-Bold').text('Order Number', margin, ly, { continued: true })
+      doc.fontSize(9.5).font('Times-Bold').text('Order Number', margin, ly, { continued: true, width: leftW })
          .font('Times-Roman').text(': ' + order_number, { width: leftW });
       ly += doc.heightOfString('Order Number: ' + order_number, { width: leftW }) + 6;
 
       const clubLabel = 'Customer';
-      doc.font('Times-Bold').text(clubLabel, margin, ly, { continued: true })
+      doc.font('Times-Bold').text(clubLabel, margin, ly, { continued: true, width: leftW })
          .font('Times-Roman').text(': ', { continued: true });
       if (data.product_page) {
         doc.text(club, { width: leftW, underline: false });
