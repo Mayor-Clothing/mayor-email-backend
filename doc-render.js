@@ -130,7 +130,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const addrLines = address.split(/\n/).map(s => s.trim()).filter(Boolean);
       addrLines.forEach(line => {
         doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
-        ly += 12;
+        // Advance by what the line ACTUALLY occupied. A long line (an address whose
+        // parts got joined onto one) wraps to two, and the old fixed 12 printed the
+        // next line straight on top of the wrapped remainder.
+        ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
       });
       ly += 8;
 
@@ -140,14 +143,17 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const shipLines = shipping_address.split(/\n/).map(s => s.trim()).filter(Boolean);
         shipLines.forEach(line => {
           doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
-          ly += 12;
+          ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
         });
         ly += 8;
       }
 
-      doc.fontSize(9.5).font('Times-Bold').text(date_label, margin, ly, { continued: true })
-         .font('Times-Roman').text(': ' + ship_date, { width: leftW });
-      ly += doc.heightOfString(date_label + ': ' + ship_date, { width: leftW }) + 10;
+      // Skip the row when there's no date — it used to print a bare "Ship Date:".
+      if (ship_date && String(ship_date).trim()) {
+        doc.fontSize(9.5).font('Times-Bold').text(date_label, margin, ly, { continued: true, width: leftW })
+           .font('Times-Roman').text(': ' + ship_date, { width: leftW });
+        ly += doc.heightOfString(date_label + ': ' + ship_date, { width: leftW }) + 10;
+      }
 
       doc.font('Times-Bold').text('Payment Terms:', margin, ly, { width: leftW });
       ly += 13;
