@@ -140,7 +140,13 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       let termsText;
       if (payment_terms && payment_terms.trim()) {
         // Custom terms from the form — use verbatim, append W-9 reference
-        termsText = payment_terms.trim().replace(/\.$/, '') + '. Based on our custom model, garments are produced specially for each customer. Once customers approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
+        // Only append the boilerplate when the custom terms don't already carry
+        // it — some deals have the whole paragraph typed into the field, and
+        // appending printed it twice.
+        const custom = payment_terms.trim().replace(/\.$/, '');
+        termsText = /no returns or exchanges/i.test(custom)
+          ? custom + '. '
+          : custom + '. Based on our custom model, garments are produced specially for each customer. Once customers approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
       } else {
         const leadIn = isSplitPayment ? '50% deposit, 50% on receipt. ' : 'Due on receipt. ';
         termsText = leadIn + 'Based on our custom model, garments are produced specially for each customer. Once customers approve their order, they are responsible for payment of its full value. There are no returns or exchanges. All sales are final. ';
