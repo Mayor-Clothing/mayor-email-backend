@@ -78,25 +78,12 @@ function parseShipDate(raw) {
   return raw.trim();
 }
 
-// Size lines are stripped ONLY when the slot's own sizes field holds them —
-// otherwise the merged render (description + sizes) would print sizes twice.
-// With the sizes field blank, whatever is typed in the description stays put,
-// so sizes can be written inline there instead (Matt's Nemacolin flow).
-function cleanDescription(desc, sizes) {
+// Description is passed through as typed, with HubSpot's " / " separator turned
+// into line breaks. Nothing is stripped: sizes written inline in the description
+// must survive, because the sheet mirrors HubSpot rather than deriving from it.
+function cleanDescription(desc) {
   if (!desc) return '';
-  const sizesFieldHasValue = String(sizes == null ? '' : sizes).trim() !== '';
-  return String(desc)
-    .replace(/ \/ /g, '\n')
-    .split('\n')
-    .filter((line) => {
-      if (!sizesFieldHasValue) return true;
-      const l = line.trim();
-      if (/^\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+(\s*[-,]\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+)*\s*$/i.test(l)) return false;
-      if (/^[A-Za-z\s/]+\s*[-–]\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+/i.test(l)) return false;
-      return true;
-    })
-    .join('\n')
-    .trim();
+  return String(desc).replace(/ \/ /g, '\n').trim();
 }
 
 

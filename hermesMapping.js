@@ -62,7 +62,7 @@ function dealToRenderPayload(deal, docType) {
   const line_items = [];
   for (let i = 0; i < 5; i++) {
     const sizes = (p['sizes_' + (i + 1)] || '').trim();
-    const desc = cleanDescription((p['description_' + (i + 1)] || '').trim(), sizes);
+    const desc = cleanDescription((p['description_' + (i + 1)] || '').trim());
     let qty = n(p[QTY_PROPS[i]]);
     if (!qty && sizes) qty = qtyFromSizes(sizes);  // auto-qty from sizes (original rule)
     if (!qty && !desc) continue;
