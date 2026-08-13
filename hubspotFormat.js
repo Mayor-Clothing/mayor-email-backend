@@ -4,7 +4,8 @@
 //   - formatAddrHS:   HubSpot address string -> proper multi-line address
 //   - parseShipDate:  raw date -> "Monday, July 6, 2026"
 //   - cleanDescription: line-item description cleanup (" / " -> newline; drop
-//                       embedded size lines that live in the separate sizes field)
+//                       embedded size lines ONLY when the separate sizes field
+//                       holds them, so sizes can be written inline instead)
 
 const HS_STATES = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'];
 
@@ -77,12 +78,18 @@ function parseShipDate(raw) {
   return raw.trim();
 }
 
-function cleanDescription(desc) {
+// Size lines are stripped ONLY when the slot's own sizes field holds them —
+// otherwise the merged render (description + sizes) would print sizes twice.
+// With the sizes field blank, whatever is typed in the description stays put,
+// so sizes can be written inline there instead (Matt's Nemacolin flow).
+function cleanDescription(desc, sizes) {
   if (!desc) return '';
+  const sizesFieldHasValue = String(sizes == null ? '' : sizes).trim() !== '';
   return String(desc)
     .replace(/ \/ /g, '\n')
     .split('\n')
     .filter((line) => {
+      if (!sizesFieldHasValue) return true;
       const l = line.trim();
       if (/^\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+(\s*[-,]\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+)*\s*$/i.test(l)) return false;
       if (/^[A-Za-z\s/]+\s*[-–]\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL|3XL|2XL)\s*:\s*\d+/i.test(l)) return false;
