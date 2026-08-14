@@ -2,3 +2,11 @@ node_modules/
 .env
 *.log
 previews/
+
+# Credentials — .env alone was too narrow: a stray .env.txt.bak holding a
+# service-account key sat untracked in a PUBLIC repo, one `git add -A` from
+# being published. Match every variant, not just the exact name.
+.env*
+*.bak
+*service-account*.json
+*credentials*.json
