@@ -118,3 +118,12 @@ plan = planInboxActions([], planOpts);
 assert.deepStrictEqual([plan.nickelPaid.length, plan.draftThreads.length, plan.ignored], [0, 0, 0]);
 
 console.log('leucrocotta.test.js: all assertions passed');
+
+// --- reconcileDrafts: a dead thread must be retired, not retried forever ---
+// Regression: deleted threads threw "Requested entity was not found" on every
+// push-driven poll, stayed unreconciled, and re-failed indefinitely.
+const { isGoneError } = require('./leucrocottaService');
+assert.strictEqual(isGoneError({ code: 404 }), true);
+assert.strictEqual(isGoneError({ message: 'Requested entity was not found.' }), true);
+assert.strictEqual(isGoneError({ message: 'ECONNRESET' }), false, 'transient errors must still retry');
+assert.strictEqual(isGoneError(null), false);

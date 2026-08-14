@@ -115,6 +115,12 @@ async function handleCustomerThread({ threadId, latestMsg, unreadIds }) {
 }
 
 
+// A deleted/purged Gmail thread can never be reconciled, so retrying it is
+// pointless. Pure seam, exported for tests (like planInboxActions above).
+function isGoneError(e) {
+  return !!e && (e.code === 404 || /not found/i.test(e.message || ''));
+}
+
 // Learning loop: for each recorded draft, once Matt has SENT his own reply in the
 // thread, compare draft vs. sent and fold the lessons into voice + contact memory.
 // Fully guarded and best-effort — never throws into the poll. Drops entries once
@@ -147,7 +153,18 @@ async function reconcileDrafts() {
       }
       rec.reconciled = true;
       count += 1;
-    } catch (e) { console.error(`reconcile ${rec.threadId} failed:`, e.message); }
+    } catch (e) {
+      // A deleted/purged thread can never be reconciled. Without this it stayed
+      // in the log and re-failed on EVERY push-driven poll — the same handful of
+      // ids looping forever, burying real errors in the logs. Retiring it here
+      // lets the prune below drop it. Transient errors still retry.
+      if (isGoneError(e)) {
+        console.warn(`reconcile ${rec.threadId}: thread is gone, retiring it`);
+        rec.reconciled = true;
+        continue;
+      }
+      console.error(`reconcile ${rec.threadId} failed:`, e.message);
+    }
   }
 
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -200,4 +217,4 @@ async function runInboxPoll() {
   }
 }
 
-module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts };
+module.exports = { runInboxPoll, planInboxActions, handleNickelPaid, handleCustomerThread, reconcileDrafts, isGoneError };
