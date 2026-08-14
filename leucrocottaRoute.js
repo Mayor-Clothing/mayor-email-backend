@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { alertError } = require('./alerts');
 const express = require('express');
 const { runInboxPoll } = require('./leucrocotta/leucrocottaService');
 const gmail = require('./leucrocotta/gmailClient');
@@ -13,6 +14,7 @@ router.post('/poll', requireInternalAuth, async (_req, res, next) => {
     const result = await runInboxPoll();
     res.status(200).json({ ok: true, ...result });
   } catch (error) {
+    alertError('Leucrocotta inbox poll', error);
     next(error);
   }
 });
@@ -24,6 +26,9 @@ router.post('/watch', requireInternalAuth, async (_req, res, next) => {
     const result = await gmail.watch();
     res.status(200).json({ ok: true, ...result });
   } catch (error) {
+    // Highest-value alert in the system: if this renewal keeps failing, Gmail
+    // push expires within 7 days and ALL draft replies stop, silently.
+    alertError('Gmail watch renewal', error, { impact: 'Email drafting stops when the subscription expires' });
     next(error);
   }
 });
@@ -43,6 +48,9 @@ router.post('/gmail-webhook/:secret', async (req, res) => {
     await runInboxPoll();
   } catch (e) {
     console.error('Leucrocotta webhook poll failed:', e.message);
+    // This is the path that actually runs (push-driven); the /poll route above
+    // is only a manual fallback. Without this, an inbox failure is log-only.
+    alertError('Leucrocotta inbox (push)', e);
   }
   res.sendStatus(204); // ack regardless — poll only acts on unread mail, safe to retry-or-not
 });

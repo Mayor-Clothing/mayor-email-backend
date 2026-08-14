@@ -2,6 +2,7 @@
 // transitions. Shared by the HTTP route, the webhook fast-path, and the poll.
 
 const { getInvoiceDeal, searchDeals, clearDealTrigger, setDealOrderStatus } = require('./hubspot');
+const { alertError } = require('./alerts');
 const { dealToRenderPayload, INVOICE_PROPERTIES, statusToValue } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
 const { persistOrder, setOrderStatus, dealDocPresence } = require('./googleStore');
@@ -209,7 +210,12 @@ async function refreshModifiedDeals() {
     const orderNumber = (d.properties && d.properties.order_number) || '';
     let presence;
     try { presence = await dealDocPresence({ dealId: d.id, orderNumber }); }
-    catch (e) { summary.errors += 1; console.error(`refresh presence ${d.id}:`, e.message); continue; }
+    catch (e) {
+      summary.errors += 1;
+      console.error(`refresh presence ${d.id}:`, e.message);
+      alertError('Refresh — check existing documents', e, { deal: d.id, order: orderNumber });
+      continue;
+    }
     for (const docType of ['order_confirmation', 'invoice']) {
       if (!(docType === 'invoice' ? presence.invoice : presence.oc)) continue;
       try {
@@ -218,7 +224,11 @@ async function refreshModifiedDeals() {
         // (the "it didn't work, click it again" retry landed inside that window).
         await generateDocument({ dealId: d.id, docType, skipClearTrigger: true, idempotencyKey: `refresh:${runId}:${d.id}:${docType}` });
         summary.regenerated.push(`${orderNumber || d.id}:${docType === 'invoice' ? 'inv' : 'oc'}`);
-      } catch (e) { summary.errors += 1; console.error(`refresh regen ${d.id} ${docType}:`, e.message); }
+      } catch (e) {
+        summary.errors += 1;
+        console.error(`refresh regen ${d.id} ${docType}:`, e.message);
+        alertError('Refresh — regenerate document', e, { deal: d.id, order: orderNumber, document: docType });
+      }
     }
   }
   lastRefreshSummary = { ...summary, finishedAt: new Date().toISOString(), windowStart: new Date(since).toISOString() };
