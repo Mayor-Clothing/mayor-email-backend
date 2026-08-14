@@ -18,8 +18,10 @@ app.use(
   })
 );
 
+// ponytail: `commit` answers "did my fix actually deploy?" without probing behavior.
+// Render sets RENDER_GIT_COMMIT; locally there's no deploy, so say so.
 app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ status: 'ok', commit: process.env.RENDER_GIT_COMMIT || 'local' });
 });
 
 app.use('/webhooks', webhookRoute);
