@@ -13,6 +13,14 @@ const path = require('path');
 const DEFAULT_LOGO_PATH = path.join(__dirname, 'Mayor_Logo_transparent.png');
 const DEFAULT_W9 = 'https://drive.google.com/file/d/1iZD_sP2WQbfPrXkHIcPqf7XawDMP2Zi1/view';
 
+// Comma-separated, cents only when non-zero — matches the portal's fmtMoney so
+// PDFs and the customer portal read the same, not like an accounting ledger.
+function fmtMoney(n) {
+  const num = Number(n) || 0;
+  const hasCents = Math.round(num * 100) % 100 !== 0;
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits: hasCents ? 2 : 0, maximumFractionDigits: 2 });
+}
+
 // SSRF-hardened: https only, image extension at the END of the path (not just
 // anywhere in the URL), no redirects, 8s timeout, 5MB cap. Any failure => null
 // (the PDF falls back to the product name).
@@ -266,8 +274,8 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.text(String(item.quantity || ''), cQ,  ry + 7, { width: qW,     align: 'right' });
         // Price column: show orig_price struck through above actual price (stacked)
         if (item.orig_price && Number(item.orig_price) > 0) {
-          const origText = '$' + Number(item.orig_price).toFixed(2);
-          const actText  = '$' + Number(item.price).toFixed(2);
+          const origText = fmtMoney(item.orig_price);
+          const actText  = fmtMoney(item.price);
           // Draw original price
           doc.text(origText, cPr, ry + 5, { width: prW, align: 'right' });
           const origW = doc.widthOfString(origText);
@@ -278,12 +286,12 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           // Draw actual price below
           doc.text(actText, cPr, ry + 18, { width: prW, align: 'right' });
         } else {
-          doc.text(item.price ? '$' + Number(item.price).toFixed(2) : '', cPr, ry + 7, { width: prW, align: 'right' });
+          doc.text(item.price ? fmtMoney(item.price) : '', cPr, ry + 7, { width: prW, align: 'right' });
         }
         // Amount column: if orig_price exists, show struck-through orig amount above actual amount
         if (item.orig_price && Number(item.orig_price) > 0) {
-          const origAmt = '$' + (Number(item.orig_price) * Number(item.quantity)).toFixed(2);
-          const actAmt  = '$' + Number(item.amount).toFixed(2);
+          const origAmt = fmtMoney(Number(item.orig_price) * Number(item.quantity));
+          const actAmt  = fmtMoney(item.amount);
           doc.text(origAmt, cA, ry + 5, { width: aW - 2, align: 'right' });
           const origAmtW = doc.widthOfString(origAmt);
           const origAmtX = cA + aW - 2 - origAmtW;
@@ -291,7 +299,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           doc.moveTo(origAmtX, midY).lineTo(origAmtX + origAmtW, midY).lineWidth(0.8).stroke('#1a1a18');
           doc.text(actAmt, cA, ry + 18, { width: aW - 2, align: 'right' });
         } else {
-          const amtText = item.amount ? '$' + Number(item.amount).toFixed(2) : (Number(item.price) === 0 ? '$0.00' : '');
+          const amtText = item.amount ? fmtMoney(item.amount) : (Number(item.price) === 0 ? fmtMoney(0) : '');
           doc.text(amtText, cA, ry + 7, { width: aW - 2, align: 'right' });
           // Strike through if price is $0
           if (Number(item.price) === 0 && amtText) {
@@ -301,7 +309,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
             doc.moveTo(tx, zMid).lineTo(tx + tw, zMid).lineWidth(0.8).stroke('#1a1a18');
           }
           if (Number(item.price) === 0) {
-            const prText = '$0.00';
+            const prText = fmtMoney(0);
             const ptw = doc.widthOfString(prText);
             const ptx = cPr + prW - ptw;
             const zMid = ry + 7 + 8.5 * 0.35;
@@ -312,12 +320,12 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         ry += rowH;
       });
 
-      // Helper: draw a bottom row with optional strikethrough centered on text.
-      // Labels right-align to the Description column edge so every totals title
-      // (Embroidery, Art Setup, Shipping, Rush Fee, Total) lines up under Subtotal.
+      // Helper: draw a bottom row with optional strikethrough centered on text
       const drawRow = (label, value, strike = false) => {
         const rH = 17;
         doc.rect(rightX, ry, rightW, rH).lineWidth(0.4).stroke('#cccccc');
+        // Labels right-align to the Description column edge so every totals title
+        // (Embroidery, Art Setup, Shipping, Rush Fee, Total) lines up under Subtotal.
         doc.fontSize(8.5).font('Times-Bold').fillColor('#1a1a18')
         // A totals row has no quantity cell, so the label gets the full width up to
         // the amount column instead of just the (narrow) description column. Rows
@@ -364,22 +372,22 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
          .text('Subtotal', cD, ry + 5, { width: dW, align: 'right' });
       doc.font('Times-Roman')
          .text(String(qtyTotal), cQ, ry + 5, { width: qW, align: 'right' })
-         .text('$' + effectiveSubtotal.toFixed(2), cA, ry + 5, { width: aW - 2, align: 'right' });
+         .text(fmtMoney(effectiveSubtotal), cA, ry + 5, { width: aW - 2, align: 'right' });
       ry += 17;
 
-      if (embroidery) drawRow('Embroidery', '$' + Number(embroidery).toFixed(2), strike_embroidery);
+      if (embroidery) drawRow('Embroidery', fmtMoney(embroidery), strike_embroidery);
       if (art_setup != null && art_setup !== 0 && art_setup !== '') {
         const artNum = parseFloat(String(art_setup).replace(/[$,\s]/g, ''));
         if (!isNaN(artNum) && artNum !== 0) {
           const artDisplay = artNum < 0
-            ? `($${Math.abs(artNum).toFixed(2)})`
-            : `$${artNum.toFixed(2)}`;
+            ? `(${fmtMoney(Math.abs(artNum))})`
+            : fmtMoney(artNum);
           drawRow('Art Setup', artDisplay, strike_art);
         }
       }
-      if (custom_label) drawRow('Custom Main Label', '$' + Number(custom_label).toFixed(2));
-      drawRow('Shipping', '$' + Number(shipping).toFixed(0), strike_shipping);
-      if (rush_fee && num(rush_fee) !== 0) drawRow('Rush Fee', '$' + Number(rush_fee).toFixed(0));
+      if (custom_label) drawRow('Custom Main Label', fmtMoney(custom_label));
+      drawRow('Shipping', fmtMoney(shipping), strike_shipping);
+      if (rush_fee && num(rush_fee) !== 0) drawRow('Rush Fee', fmtMoney(rush_fee));
       // Guard on the NUMBER: the sheet stores "0", which is a truthy string and
       // printed a bare unformatted 0 row.
       if (num(sample_reimbursement) !== 0) drawRow('Sample Reimbursement', sample_reimbursement);
@@ -389,7 +397,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       doc.rect(rightX, ry, rightW, totH).lineWidth(0.4).stroke('#cccccc');
       doc.fontSize(9).font('Times-Bold').fillColor('#1a1a18')
          .text('Total', cD, ry + 5, { width: dW, align: 'right' })
-         .text('$' + effectiveTotal.toFixed(2), cA, ry + 5, { width: aW - 2, align: 'right' });
+         .text(fmtMoney(effectiveTotal), cA, ry + 5, { width: aW - 2, align: 'right' });
 
       // ── FOOTER ──
       doc.moveTo(margin, pageH - 38).lineTo(pageW - margin, pageH - 38).lineWidth(0.75).stroke();
