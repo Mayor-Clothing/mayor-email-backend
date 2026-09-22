@@ -1,0 +1,101 @@
+// Regression test for the 2026-09-22 Sheets quota alert
+// ("Refresh — check existing documents failed / Read requests per minute per user").
+//
+// The refresh reconcile called dealDocPresence once per deal, and each call read
+// BOTH detail tabs in full — two API reads per deal. A post-deploy Refresh sweeps
+// a wide window (mayor-docs 07: a restart resets the refresh marker), so a 36-deal
+// sweep fired 72 reads inside a minute against a 60-read-per-minute-per-user
+// budget that the whole service shares (everything impersonates mayor@).
+//
+// Stubs googleapis BEFORE requiring googleStore, which builds its clients from it.
+
+const assert = require('assert');
+
+process.env.MO_SHEET_ID = 'TEST_SHEET';
+process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({
+  client_email: 'test@example.iam.gserviceaccount.com',
+  private_key: 'test-key',
+});
+
+const { google } = require('googleapis');
+
+// Count every request the Sheets client makes.
+const calls = { get: 0, batchGet: 0 };
+const ocRows = [['Deal ID', '', '', '', '', 'Order Number']];
+const invRows = [['Deal ID', '', '', '', '', 'Order Number']];
+for (let i = 0; i < 36; i += 1) {
+  ocRows.push([`D${i}`, '', '', '', '', `ORD-${i}`]);
+  if (i % 2 === 0) invRows.push([`D${i}`, '', '', '', '', `ORD-${i}`]);
+}
+const rowsFor = (range) => (range.startsWith('Invoices') ? invRows : ocRows);
+
+google.auth.JWT = function () { return {}; };
+google.sheets = () => ({
+  spreadsheets: {
+    values: {
+      get: async ({ range }) => { calls.get += 1; return { data: { values: rowsFor(range) } }; },
+      batchGet: async ({ ranges }) => {
+        calls.batchGet += 1;
+        return { data: { valueRanges: ranges.map((r) => ({ values: rowsFor(r) })) } };
+      },
+    },
+  },
+});
+google.drive = () => ({ files: { list: async () => ({ data: { files: [] } }) } });
+
+const { fetchDocPresenceIndex, dealDocPresence, isRateLimited, withRetry } = require('./googleStore');
+
+// The exact message Google sent in the 4:08pm alert.
+const QUOTA_MSG = "Quota exceeded for quota metric 'Read requests' and limit "
+  + "'Read requests per minute per user' of service 'sheets.googleapis.com' "
+  + "for consumer 'project_number:678093620308'.";
+
+(async () => {
+  // 1. A 36-deal sweep costs ONE read, not 72.
+  const index = await fetchDocPresenceIndex();
+  for (let i = 0; i < 36; i += 1) {
+    await dealDocPresence({ dealId: `D${i}`, orderNumber: `ORD-${i}`, index });
+  }
+  const total = calls.get + calls.batchGet;
+  assert.strictEqual(total, 1, `36 deals must cost 1 read, spent ${total}`);
+  assert.strictEqual(calls.get, 0, 'no per-tab reads once the index is shared');
+
+  // 2. Presence answers are still correct from the shared index.
+  const even = await dealDocPresence({ dealId: 'D4', orderNumber: 'ORD-4', index });
+  assert.deepStrictEqual(even, { oc: true, invoice: true }, 'D4 has both documents');
+  const odd = await dealDocPresence({ dealId: 'D5', orderNumber: 'ORD-5', index });
+  assert.deepStrictEqual(odd, { oc: true, invoice: false }, 'D5 has an OC but no invoice');
+  const absent = await dealDocPresence({ dealId: 'D999', orderNumber: 'ORD-999', index });
+  assert.deepStrictEqual(absent, { oc: false, invoice: false }, 'an unknown deal has neither');
+
+  // 3. Without an index it still works — one batched read, not two.
+  calls.get = 0; calls.batchGet = 0;
+  await dealDocPresence({ dealId: 'D1', orderNumber: 'ORD-1' });
+  assert.strictEqual(calls.batchGet, 1, 'un-indexed presence is one batched read');
+  assert.strictEqual(calls.get, 0, 'un-indexed presence never falls back to two reads');
+
+  // 4. Google's real quota message is recognised as retryable.
+  assert.ok(isRateLimited(new Error(QUOTA_MSG)), 'the quota message is a rate limit');
+  assert.ok(isRateLimited({ code: 429, message: 'Too Many Requests' }), 'HTTP 429 is a rate limit');
+  assert.ok(!isRateLimited(new Error('MO_SHEET_ID is not set')), 'config errors are NOT retried');
+  assert.ok(!isRateLimited(new Error('HubSpot API error 400')), 'a 400 is NOT retried');
+
+  // 5. A rate-limited call recovers instead of dropping the order.
+  let attempts = 0;
+  const value = await withRetry('test', async () => {
+    attempts += 1;
+    if (attempts < 2) throw new Error(QUOTA_MSG);
+    return 'recovered';
+  });
+  assert.strictEqual(value, 'recovered', 'the call succeeds after a retry');
+  assert.strictEqual(attempts, 2, 'it retried exactly once');
+
+  // 6. A non-retryable error still surfaces immediately.
+  let threw = null;
+  try {
+    await withRetry('test', async () => { throw new Error('HubSpot API error 400'); });
+  } catch (e) { threw = e; }
+  assert.ok(threw && /400/.test(threw.message), 'a real error is not swallowed by the retry loop');
+
+  console.log('googleQuota.test.js: all assertions passed');
+})();
