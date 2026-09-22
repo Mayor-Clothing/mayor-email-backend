@@ -48,6 +48,12 @@ function buildRow(vals) {
 // F(5) on OC/Invoices, A(0) on Order Info.
 const INFO_DEAL_COL = 7;
 
+// deal_name (HubSpot's own Deal Name field, e.g. "PO #094 - Club Name I") is
+// appended at the far right of Order Info as I(8) -- the portal's order list
+// sorts on this, since Order Info's own "order_number" isn't always the same
+// text as the HubSpot deal name. Blank on rows written before this existed.
+const INFO_DEALNAME_COL = 8;
+
 // Pure upsert key: find the row (0-based array index, header at 0) to write into.
 // Prefer a STABLE deal_id match so renaming an order in HubSpot updates the
 // existing row instead of forking a new one and orphaning the old (F10). If no
@@ -76,4 +82,4 @@ function firstEmptyRow(rows, orderIdx) {
   return rows.length + 1;
 }
 
-module.exports = { COLUMNS, COL, buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow };
+module.exports = { COLUMNS, COL, buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, matchRowIndex, firstEmptyRow };

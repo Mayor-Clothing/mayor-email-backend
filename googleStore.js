@@ -12,7 +12,7 @@
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
-const { buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
+const { buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
 const { parseShipDate } = require('./hubspotFormat');
 
 // No fallback: the old hardcoded id ('152hyxQz…') is the DEAD pre-reorg sheet.
@@ -226,13 +226,15 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
     const { fileId, pdfUrl } = await uploadPdfToDrive(drive, orderNumber, docType, pdfBuffer);
 
     // Order Info: the row the portal lists. Keyed on deal_id (col H) so a HubSpot
-    // rename updates in place; read A:H for the deal_id + current status (F3).
-    const infoRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Order Info!A:H' });
+    // rename updates in place; read A:I for the deal_id + current status (F3) +
+    // deal_name (I, added F14 so the portal can sort by HubSpot's real Deal Name
+    // instead of the order_number field, which doesn't always match it).
+    const infoRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Order Info!A:I' });
     const infoRows = infoRes.data.values || [];
     const infoIdx = matchRowIndex(infoRows, INFO_DEAL_COL, 0, dealId, orderNumber);
     if (infoIdx < 1) {
       await writeRow(sheets, 'Order Info', { dealId, orderNumber },
-        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId].map(sheetSafe));
+        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId, payload.deal_name || ''].map(sheetSafe));
       // customer_email can be a comma/semicolon list (see portal.js emailInList) --
       // pre-register each address so every recipient can log in, not just the first.
       const emails = String(payload.customer_email || '').split(/[,;]+/).map((e) => e.trim()).filter(Boolean);
@@ -249,6 +251,9 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       // whatever's already on the sheet untouched.
       if (payload.order_status && String(row[4] || '') !== payload.order_status) {
         updates.push({ range: `Order Info!E${targetRow}`, values: [[sheetSafe(payload.order_status)]] });
+      }
+      if (payload.deal_name && String(row[INFO_DEALNAME_COL] || '') !== payload.deal_name) {
+        updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name)]] });
       }
       if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, resource: { valueInputOption: 'USER_ENTERED', data: updates } });
     }
