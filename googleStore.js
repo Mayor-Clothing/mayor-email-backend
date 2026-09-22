@@ -44,8 +44,41 @@ const STATUS_RANK = {
 };
 const statusRank = (s) => STATUS_RANK[String(s || '').trim().toLowerCase()] || 0;
 
+// Google's binding limit here is READS PER MINUTE PER USER (60), not per
+// project: every call impersonates mayor@ through domain-wide delegation, so the
+// whole service shares one user's budget. Rebuilding the JWT on every call also
+// re-minted an access token each time — memoize the pair.
+let _clients = null;
+
+// A 429 from Sheets means "come back in a moment", not "this order failed". A
+// wide post-deploy Refresh (normal — see mayor-docs 07-known-quirks: a restart
+// resets the refresh window) legitimately touches every recent deal at once, and
+// without a retry those orders were dropped and alert-emailed instead.
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function isRateLimited(e) {
+  const code = Number((e && (e.code || e.status)) || (e && e.response && e.response.status) || 0);
+  if (code === 429 || code === 503) return true;
+  return /quota exceeded|rate ?limit|rateLimitExceeded|userRateLimitExceeded/i.test((e && e.message) || '');
+}
+
+async function withRetry(label, fn) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!isRateLimited(e) || attempt >= RETRY_DELAYS_MS.length) throw e;
+      const wait = RETRY_DELAYS_MS[attempt] + Math.floor(Math.random() * 400);
+      console.warn(`${label}: rate limited by Google, retrying in ${wait}ms (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
+      await sleep(wait);
+    }
+  }
+}
+
 function getClients() {
   if (!SHEET_ID) throw new Error('MO_SHEET_ID is not set — refusing to run against the dead fallback sheet.');
+  if (_clients) return _clients;
   // Service accounts have no Drive storage quota, so acting as the SA's own
   // identity can't create files ("Service Accounts do not have storage quota").
   // Impersonate the Workspace user (same domain-wide delegation the Gmail client
@@ -59,7 +92,8 @@ function getClients() {
     ],
     subject: process.env.GMAIL_USER || 'mayor@mayorclothing.com',
   });
-  return { sheets: google.sheets({ version: 'v4', auth }), drive: google.drive({ version: 'v3', auth }) };
+  _clients = { sheets: google.sheets({ version: 'v4', auth }), drive: google.drive({ version: 'v3', auth }) };
+  return _clients;
 }
 
 // The portal's detail tabs mirror the HubSpot "Deals" tab's column order and
@@ -147,7 +181,7 @@ function buildDetailRow(p, driveLink) {
 async function upsertUserEmail(sheets, email, club) {
   if (!email) return;
   try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Users!A:C' });
+    const res = await withRetry('read Users!A:C', () => sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Users!A:C' }));
     const rows = res.data.values || [];
     const idx = rows.findIndex((r) => r[0] && r[0].toLowerCase() === email.toLowerCase());
     if (idx === -1) {
@@ -168,20 +202,25 @@ async function upsertUserEmail(sheets, email, club) {
 }
 
 // Upsert a full row, keyed on deal_id (fallback order_number). Returns 1-based row.
-async function writeRow(sheets, tab, { dealId, orderNumber }, rowData) {
+// prefetchedRows: the tab's A:H values already in hand (persistOrder batch-reads
+// Order Info and the detail tab together), so this doesn't spend a second read.
+async function writeRow(sheets, tab, { dealId, orderNumber }, rowData, prefetchedRows) {
   const isInfo = tab === 'Order Info';
   const dealIdx = isInfo ? INFO_DEAL_COL : 0;
   const orderIdx = isInfo ? 0 : 5;
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A:H` });
-  const rows = res.data.values || [];
+  let rows = prefetchedRows;
+  if (!rows) {
+    const res = await withRetry(`read ${tab}!A:H`, () => sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A:H` }));
+    rows = res.data.values || [];
+  }
   const idx = matchRowIndex(rows, dealIdx, orderIdx, dealId, orderNumber);
   const targetRow = idx > 0 ? idx + 1 : firstEmptyRow(rows, orderIdx);
-  await sheets.spreadsheets.values.update({
+  await withRetry(`write ${tab}!A${targetRow}`, () => sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
     range: `${tab}!A${targetRow}`,
     valueInputOption: 'USER_ENTERED',
     resource: { values: [rowData.map(sheetSafe)] },
-  });
+  }));
   return targetRow;
 }
 
@@ -229,12 +268,22 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
     // rename updates in place; read A:I for the deal_id + current status (F3) +
     // deal_name (I, added F14 so the portal can sort by HubSpot's real Deal Name
     // instead of the order_number field, which doesn't always match it).
-    const infoRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Order Info!A:I' });
-    const infoRows = infoRes.data.values || [];
+    // Batched with the detail tab below: two ranges, ONE read request. Separately
+    // these were 2 of the 3 reads every regenerated document cost, which is how a
+    // 36-deal Refresh blew the per-minute read quota (2026-09-22).
+    const tab = docType === 'invoice' ? 'Invoices' : 'Order Confirmations';
+    const batch = await withRetry('read Order Info + detail tab', () => sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SHEET_ID,
+      ranges: ['Order Info!A:I', `${tab}!A:H`],
+    }));
+    const ranges = (batch.data && batch.data.valueRanges) || [];
+    const infoRows = (ranges[0] && ranges[0].values) || [];
+    const detailRows = (ranges[1] && ranges[1].values) || [];
     const infoIdx = matchRowIndex(infoRows, INFO_DEAL_COL, 0, dealId, orderNumber);
     if (infoIdx < 1) {
       await writeRow(sheets, 'Order Info', { dealId, orderNumber },
-        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId, payload.deal_name || ''].map(sheetSafe));
+        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId, payload.deal_name || ''].map(sheetSafe),
+        infoRows);
       // customer_email can be a comma/semicolon list (see portal.js emailInList) --
       // pre-register each address so every recipient can log in, not just the first.
       const emails = String(payload.customer_email || '').split(/[,;]+/).map((e) => e.trim()).filter(Boolean);
@@ -255,12 +304,11 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       if (payload.deal_name && String(row[INFO_DEALNAME_COL] || '') !== payload.deal_name) {
         updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name)]] });
       }
-      if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, resource: { valueInputOption: 'USER_ENTERED', data: updates } });
+      if (updates.length) await withRetry('update Order Info', () => sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, resource: { valueInputOption: 'USER_ENTERED', data: updates } }));
     }
 
     // Detail row for the portal's document view — also keyed on deal_id (F10).
-    const tab = docType === 'invoice' ? 'Invoices' : 'Order Confirmations';
-    await writeRow(sheets, tab, { dealId, orderNumber }, buildDetailRow(payload, pdfUrl));
+    await writeRow(sheets, tab, { dealId, orderNumber }, buildDetailRow(payload, pdfUrl), detailRows);
 
     return { persisted: true, status, driveFileId: fileId, pdfUrl };
   } catch (e) {
@@ -276,7 +324,7 @@ async function setOrderStatus({ orderNumber, status, tracking, deliveredDate }) 
   if (!credsPresent()) return { updated: false, status, skipped: 'no google credentials' };
   try {
     const { sheets } = getClients();
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Order Info!A:E' });
+    const res = await withRetry('read Order Info!A:E', () => sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Order Info!A:E' }));
     const col = res.data.values || [];
     // Trim/collapse whitespace on both sides — a Nickel order ref (or a stray
     // sheet cell) with extra spaces must still match its order row.
@@ -296,10 +344,10 @@ async function setOrderStatus({ orderNumber, status, tracking, deliveredDate }) 
     if (deliveredDate != null && deliveredDate !== '') data.push({ range: `Order Info!G${row}`, values: [[sheetSafe(parseShipDate(deliveredDate) || deliveredDate)]] });
     if (data.length === 0) return { updated: false, status, skipped: 'no forward change' };
 
-    await sheets.spreadsheets.values.batchUpdate({
+    await withRetry('update Order Info status', () => sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SHEET_ID,
       resource: { valueInputOption: 'USER_ENTERED', data },
-    });
+    }));
     return { updated: true, status };
   } catch (e) {
     console.error('setOrderStatus failed:', e.message);
@@ -307,18 +355,40 @@ async function setOrderStatus({ orderNumber, status, tracking, deliveredDate }) 
   }
 }
 
+// Read both detail tabs ONCE and hand the result to every deal in a refresh run.
+// This is the fix for the 2026-09-22 quota alert: dealDocPresence used to do two
+// full-tab reads per deal, so a 36-deal sweep fired 72 reads inside a minute and
+// exhausted the 60-reads-per-minute-per-user budget. The tabs don't change under
+// us mid-run in a way that matters — a doc that appears during the sweep is
+// picked up by the next one.
+async function fetchDocPresenceIndex() {
+  if (!credsPresent()) return null;
+  const { sheets } = getClients();
+  const res = await withRetry('read detail tabs', () => sheets.spreadsheets.values.batchGet({
+    spreadsheetId: SHEET_ID,
+    ranges: ['Order Confirmations!A:F', 'Invoices!A:F'],
+  }));
+  const ranges = (res.data && res.data.valueRanges) || [];
+  return {
+    ocRows: (ranges[0] && ranges[0].values) || [],
+    invRows: (ranges[1] && ranges[1].values) || [],
+  };
+}
+
 // Which detail tabs already hold a row for this deal (by deal_id, fallback
 // order_number)? Used by the refresh reconcile to update only docs that already
 // exist — never materialize a premature OC/Invoice for a deal that was merely
 // edited mid-stage. deal_id is col A(0), order_number col F(5) on both tabs.
-async function dealDocPresence({ dealId, orderNumber }) {
+// Pass `index` from fetchDocPresenceIndex to answer from memory at zero API
+// cost; without it this costs one batched read.
+async function dealDocPresence({ dealId, orderNumber, index }) {
   if (!credsPresent()) return { oc: false, invoice: false };
-  const { sheets } = getClients();
-  const has = async (tab) => {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A:F` });
-    return matchRowIndex(res.data.values || [], 0, 5, dealId, orderNumber) >= 1;
+  const idx = index || await fetchDocPresenceIndex();
+  if (!idx) return { oc: false, invoice: false };
+  return {
+    oc: matchRowIndex(idx.ocRows, 0, 5, dealId, orderNumber) >= 1,
+    invoice: matchRowIndex(idx.invRows, 0, 5, dealId, orderNumber) >= 1,
   };
-  return { oc: await has('Order Confirmations'), invoice: await has('Invoices') };
 }
 
-module.exports = { persistOrder, setOrderStatus, buildDetailRow, credsPresent, matchRowIndex, dealDocPresence };
+module.exports = { persistOrder, setOrderStatus, buildDetailRow, credsPresent, matchRowIndex, dealDocPresence, fetchDocPresenceIndex, isRateLimited, withRetry };

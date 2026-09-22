@@ -5,7 +5,7 @@ const { getInvoiceDeal, searchDeals, clearDealTrigger, setDealOrderStatus } = re
 const { alertError } = require('./alerts');
 const { dealToRenderPayload, INVOICE_PROPERTIES, statusToValue } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
-const { persistOrder, setOrderStatus, dealDocPresence } = require('./googleStore');
+const { persistOrder, setOrderStatus, dealDocPresence, fetchDocPresenceIndex } = require('./googleStore');
 
 // Trigger property names (blueprint §4.3). Created manually in HubSpot; until
 // then triggers simply never fire and the poll's searches no-op.
@@ -187,6 +187,13 @@ let lastRefreshTs = Date.now() - 24 * 60 * 60 * 1000; // cold start: cover the l
 // like it "doesn't work sometimes". Re-examining a few extra minutes is cheap:
 // regenerating a doc is an upsert.
 const REFRESH_GRACE_MS = 10 * 60 * 1000;
+// Google allows 60 Sheets reads per minute per user, and everything here
+// impersonates mayor@, so the whole service shares one budget. Each regenerated
+// document now costs one batched read, so a breather between deals keeps even a
+// wide post-deploy sweep (36+ deals) under the ceiling instead of sprinting into
+// a 429. Costs ~5s on a 36-deal run; a quiet run checks 1–2 deals and never notices.
+const REFRESH_PACE_MS = Number(process.env.REFRESH_PACE_MS || 150);
+const pause = (ms) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 let lastRefreshSummary = null;
 const getLastRefreshSummary = () => lastRefreshSummary;
 
@@ -206,10 +213,23 @@ async function refreshModifiedDeals() {
   }
   lastRefreshTs = Date.now();
   summary.checked = deals.length;
+
+  // Read the two detail tabs once for the whole run instead of twice per deal.
+  // Before this, a 36-deal sweep spent 72 reads in under a minute and tripped
+  // Google's per-minute read quota, which surfaced as "Refresh — check existing
+  // documents failed" alerts (2026-09-22). A failure here is not fatal:
+  // dealDocPresence falls back to reading per deal.
+  let presenceIndex = null;
+  try { presenceIndex = await fetchDocPresenceIndex(); }
+  catch (e) { console.warn('refresh presence index failed, falling back to per-deal reads:', e.message); }
+
+  let first = true;
   for (const d of deals) {
+    if (!first) await pause(REFRESH_PACE_MS);
+    first = false;
     const orderNumber = (d.properties && d.properties.order_number) || '';
     let presence;
-    try { presence = await dealDocPresence({ dealId: d.id, orderNumber }); }
+    try { presence = await dealDocPresence({ dealId: d.id, orderNumber, index: presenceIndex }); }
     catch (e) {
       summary.errors += 1;
       console.error(`refresh presence ${d.id}:`, e.message);
