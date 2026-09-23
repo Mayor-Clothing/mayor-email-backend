@@ -43,6 +43,9 @@ const INVOICE_PROPERTIES = [
   'dealname', 'dealstage', 'order_status', 'zg_tracking_number', 'print_background',
   // A separate manual dropdown from Order Status -- "Awaiting Payment" / "Paid".
   'payment_status',
+  // Positive number typed in HubSpot; always rendered as a deduction, like
+  // z_sample_reimbursement.
+  'z_commission',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.
@@ -115,6 +118,7 @@ function dealToRenderPayload(deal, docType) {
   const label = n(p.custom_main_label);
   const rush = n(p.rush_fee);
   const sampleReimb = n(p.z_sample_reimbursement);
+  const commission = n(p.z_commission);
 
   // Address blocks + ship date — mirror mayor-tools' formatting rules exactly.
   // shippingbilling_address is the primary address; c_billing_address is the
@@ -162,6 +166,7 @@ function dealToRenderPayload(deal, docType) {
     sample_reimbursement: sampleReimb > 0 ? `(${sampleReimb.toFixed(2)})` : null,
     custom_label: label > 0 ? label : null,
     rush_fee: rush > 0 ? rush : null,
+    commission: commission > 0 ? `(${commission.toFixed(2)})` : null,
   };
 }
 

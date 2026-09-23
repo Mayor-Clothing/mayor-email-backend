@@ -1,5 +1,5 @@
 // Canonical MO-sheet detail-row layout for the Order Confirmations / Invoices
-// tabs (columns A..BQ, 69 cells). SINGLE SOURCE OF TRUTH for column order: the
+// tabs (columns A..BR, 70 cells). SINGLE SOURCE OF TRUTH for column order: the
 // two writers (mayor-email-backend googleStore.buildDetailRow and mayor-invoice
 // index.js appendOrderToSheet) and the reader (mayor-invoice portal.js
 // parseSheetRow) all derive column positions from here — a layout change is a
@@ -27,6 +27,10 @@ const COLUMNS = [
   'custom_label', 'rush_fee', 'shipping', 'strike_embroidery', 'strike_art', 'strike_shipping',
   'total', 'payment_terms', 'payment_link', 'payment_link_2',
   'product_page', 'drive_pdf_link',
+  // Commission (F/U 2026-09): always a deduction, stored pre-formatted as a
+  // "(x)" credit string exactly like sample_reimbursement. Appended at the far
+  // right, not inserted mid-list, per the column-position warning above.
+  'commission',
 ];
 
 // name -> 0-based column index (for the reader).

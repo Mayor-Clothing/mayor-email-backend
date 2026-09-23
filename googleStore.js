@@ -127,9 +127,10 @@ function effectiveSubtotalAndTotal(p) {
   const reimbForTotal = num(p.sample_reimbursement);
   const customForTotal = num(p.custom_label);
   const rushForTotal = num(p.rush_fee);
+  const commissionForTotal = num(p.commission);
   const total = p.total && Number(p.total) > 0
     ? Number(p.total)
-    : subtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal;
+    : subtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal - commissionForTotal;
   return { subtotal, total };
 }
 
@@ -160,6 +161,7 @@ function buildDetailRow(p, driveLink) {
     embroidery: p.embroidery || '',
     art_setup: (p.art_setup != null ? parseFloat(String(p.art_setup).replace(/[$,\s]/g, '')) || '' : ''),
     sample_reimbursement: p.sample_reimbursement || '', custom_label: p.custom_label || '', shipping: p.shipping || '', total: effTotal || '',
+    commission: p.commission || '',
     payment_link: p.payment_link || '', payment_link_2: p.payment_link_2 || '',
     // Write an explicit '0' for "not struck" — a BLANK cell means "never set" and
     // the portal falls back to the legacy default (waived for emb/art, charged for

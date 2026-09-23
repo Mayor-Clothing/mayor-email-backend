@@ -86,7 +86,8 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
     payment_link = '', payment_link_2 = '', w9_link = DEFAULT_W9,
     line_items = [], subtotal = 0, embroidery, art_setup, strike_embroidery = true, strike_art = true,
     shipping = 0, strike_shipping = false, sample_reimbursement = null,
-    custom_label = null, rush_fee = null, payment_terms = '', total = 0
+    custom_label = null, rush_fee = null, payment_terms = '', total = 0,
+    commission = null
   } = data;
 
   return await new Promise((resolve, reject) => {
@@ -364,9 +365,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const reimbForTotal = num(sample_reimbursement); // stored as "(x)" credit
       const customForTotal = num(custom_label);
       const rushForTotal = num(rush_fee);
+      const commissionForTotal = num(commission); // stored as "(x)" credit, like sample_reimbursement
       const effectiveTotal = total && Number(total) > 0
         ? Number(total)
-        : effectiveSubtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal;
+        : effectiveSubtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal - commissionForTotal;
 
       const qtyTotal = line_items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
       doc.rect(rightX, ry, rightW, 17).lineWidth(0.4).stroke('#cccccc');
@@ -388,6 +390,9 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         }
       }
       if (custom_label) drawRow('Custom Main Label', fmtMoney(custom_label));
+      // Guard on the NUMBER, same as Sample Reimbursement: the sheet stores "0",
+      // which is a truthy string and would print a bare unformatted 0 row.
+      if (num(commission) !== 0) drawRow('Commission', commission);
       drawRow('Shipping', fmtMoney(shipping), strike_shipping);
       if (rush_fee && num(rush_fee) !== 0) drawRow('Rush Fee', fmtMoney(rush_fee));
       // Guard on the NUMBER: the sheet stores "0", which is a truthy string and
