@@ -230,7 +230,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.fontSize(8.5).font('Helvetica').fillColor(INK);
         if (imgBuf) {
           try {
-            doc.image(imgBuf, cP + 5, y + 4, { fit: [pW - 10, rowH - 8], align: 'center', valign: 'center', link: item.product_page || data.product_page || '' });
+            doc.image(imgBuf, cP + 5, y + 4, { fit: [pW - 10, rowH - 8], align: 'center', valign: 'center', link: item.product_page || (i === 0 ? data.product_page : '') || '' });
           } catch (e) {
             doc.text(item.product || '', cP + 6, y + 7, { width: pW - 10, underline: false });
           }
