@@ -24,9 +24,11 @@ const SHEET_CREDS = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || proces
 
 // Neutralize spreadsheet formula injection: a value starting with = + - @ (or a
 // leading control char) is prefixed with a single quote so Sheets treats it as text.
+// Also guards a leading-zero digit string (e.g. order number "092826") — Sheets'
+// USER_ENTERED auto-number conversion otherwise silently drops the zero (F/U 2026-09).
 function sheetSafe(v) {
   if (typeof v !== 'string') return v;
-  return /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+  return /^[=+\-@\t\r]|^0\d/.test(v) ? `'${v}` : v;
 }
 
 function credsPresent() {
