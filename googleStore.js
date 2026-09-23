@@ -297,6 +297,13 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       // Rename / legacy-adopt: keep order_number (A) and deal_id (H) current.
       if (String(row[0] || '') !== String(orderNumber)) updates.push({ range: `Order Info!A${targetRow}`, values: [[sheetSafe(orderNumber)]] });
       if (dealId && String(row[INFO_DEAL_COL] || '') !== String(dealId)) updates.push({ range: `Order Info!H${targetRow}`, values: [[sheetSafe(dealId)]] });
+      // Ship date was previously only set when the row was first created, so
+      // clearing (or changing) it in HubSpot afterward never reached the sheet.
+      // Unlike the other synced fields below, this one must sync TO blank too --
+      // a cleared ship date is a real, common edit, not a missing read.
+      if (String(row[2] || '') !== String(payload.ship_date || '')) {
+        updates.push({ range: `Order Info!C${targetRow}`, values: [[sheetSafe(payload.ship_date || '')]] });
+      }
       // Manual dropdown status is authoritative — write it whenever it's set and
       // differs (any direction, so Matt can correct it). A blank dropdown leaves
       // whatever's already on the sheet untouched.
