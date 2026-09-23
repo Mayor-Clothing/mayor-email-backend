@@ -63,7 +63,7 @@ assert.strictEqual(row[COL.strike_shipping], '1');
 assert.strictEqual(row[COL.drive_pdf_link], 'https://drive.google.com/file/d/abc/view');
 assert.strictEqual(row[COL.p1_product_page], 'https://x/details1');
 assert.strictEqual(row[COL.p1_mockup], 'https://img/mock1.png');
-assert.strictEqual(row.length, 70);
+assert.strictEqual(row.length, 78);
 
 // hermesMapping.js deliberately sends subtotal:0/total:0 ("force doc-render to
 // recompute from line items") -- buildDetailRow must fall back to the same

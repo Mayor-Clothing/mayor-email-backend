@@ -156,7 +156,9 @@ function buildDetailRow(p, driveLink) {
     p3_url: nameOrUrl(2), p3_desc: get(2, 'description'), p3_sizes: get(2, 'sizes'), p3_qty: get(2, 'quantity'), p3_price: get(2, 'price'),
     p4_url: nameOrUrl(3), p4_desc: get(3, 'description'), p4_sizes: get(3, 'sizes'),
     p5_url: nameOrUrl(4), p5_desc: get(4, 'description'), p5_sizes: get(4, 'sizes'),
+    p6_url: nameOrUrl(5), p6_desc: get(5, 'description'), p6_sizes: get(5, 'sizes'),
     p4_qty: get(3, 'quantity'), p4_price: get(3, 'price'), p5_qty: get(4, 'quantity'), p5_price: get(4, 'price'),
+    p6_qty: get(5, 'quantity'), p6_price: get(5, 'price'),
     subtotal_quantity: subtotalQty || '', subtotal: effSubtotal || '',
     embroidery: p.embroidery || '',
     art_setup: (p.art_setup != null ? parseFloat(String(p.art_setup).replace(/[$,\s]/g, '')) || '' : ''),
@@ -168,11 +170,11 @@ function buildDetailRow(p, driveLink) {
     // shipping, portal.js strikeCell). Collapsing false into '' made an explicitly
     // unstruck fee render struck in the portal while the total charged it.
     strike_embroidery: p.strike_embroidery ? '1' : '0', strike_art: p.strike_art ? '1' : '0', strike_shipping: p.strike_shipping ? '1' : '0',
-    orig_price_1: get(0, 'orig_price') || '', orig_price_2: get(1, 'orig_price') || '', orig_price_3: get(2, 'orig_price') || '', orig_price_4: get(3, 'orig_price') || '', orig_price_5: get(4, 'orig_price') || '',
+    orig_price_1: get(0, 'orig_price') || '', orig_price_2: get(1, 'orig_price') || '', orig_price_3: get(2, 'orig_price') || '', orig_price_4: get(3, 'orig_price') || '', orig_price_5: get(4, 'orig_price') || '', orig_price_6: get(5, 'orig_price') || '',
     drive_pdf_link: driveLink || '',
     rush_fee: p.rush_fee || '',
-    p1_product_page: get(0, 'product_page'), p2_product_page: get(1, 'product_page'), p3_product_page: get(2, 'product_page'), p4_product_page: get(3, 'product_page'), p5_product_page: get(4, 'product_page'),
-    p1_mockup: get(0, 'mockup'), p2_mockup: get(1, 'mockup'), p3_mockup: get(2, 'mockup'), p4_mockup: get(3, 'mockup'), p5_mockup: get(4, 'mockup'),
+    p1_product_page: get(0, 'product_page'), p2_product_page: get(1, 'product_page'), p3_product_page: get(2, 'product_page'), p4_product_page: get(3, 'product_page'), p5_product_page: get(4, 'product_page'), p6_product_page: get(5, 'product_page'),
+    p1_mockup: get(0, 'mockup'), p2_mockup: get(1, 'mockup'), p3_mockup: get(2, 'mockup'), p4_mockup: get(3, 'mockup'), p5_mockup: get(4, 'mockup'), p6_mockup: get(5, 'mockup'),
   });
 }
 

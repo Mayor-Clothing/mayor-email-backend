@@ -31,6 +31,9 @@ const COLUMNS = [
   // "(x)" credit string exactly like sample_reimbursement. Appended at the far
   // right, not inserted mid-list, per the column-position warning above.
   'commission',
+  // Product #6 (F/U 2026-09): a 6th line-item slot. Appended at the far right
+  // rather than next to the p1-p5 block, per the column-position warning above.
+  'p6_url', 'p6_mockup', 'p6_product_page', 'p6_desc', 'p6_sizes', 'p6_qty', 'orig_price_6', 'p6_price',
 ];
 
 // name -> 0-based column index (for the reader).

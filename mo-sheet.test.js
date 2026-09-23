@@ -3,9 +3,9 @@
 const assert = require('assert');
 const { COLUMNS, COL, buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
 
-// 70 columns in HubSpot deal-card order. deal_id at A(0) + order_number at F(5)
+// 78 columns in HubSpot deal-card order. deal_id at A(0) + order_number at F(5)
 // preserved so the upsert keying still works; per-item blocks + totals follow.
-assert.strictEqual(COLUMNS.length, 70, 'layout must be 70 columns');
+assert.strictEqual(COLUMNS.length, 78, 'layout must be 78 columns');
 
 // Spot-pin positions across the new order (bookkeeping front, per-item blocks,
 // totals, legacy product_page + drive_pdf_link trailing).
@@ -19,13 +19,14 @@ const expected = {
   custom_label: 57, rush_fee: 58, shipping: 59, strike_embroidery: 60, strike_art: 61, strike_shipping: 62,
   total: 63, payment_terms: 64, payment_link: 65, payment_link_2: 66, product_page: 67, drive_pdf_link: 68,
   commission: 69,
+  p6_url: 70, p6_mockup: 71, p6_product_page: 72, p6_desc: 73, p6_sizes: 74, p6_qty: 75, orig_price_6: 76, p6_price: 77,
 };
 for (const [name, idx] of Object.entries(expected)) assert.strictEqual(COL[name], idx, `COL.${name} must be ${idx}`);
 assert.strictEqual(INFO_DEAL_COL, 7, 'Order Info deal_id column is H(7)');
 
 // buildRow places values by name and blanks the rest.
 const row = buildRow({ deal_id: 'D1', order_number: 'Ord', total: 99, strike_embroidery: '1' });
-assert.strictEqual(row.length, 70);
+assert.strictEqual(row.length, 78);
 assert.strictEqual(row[0], 'D1');
 assert.strictEqual(row[5], 'Ord');
 assert.strictEqual(row[63], 99);

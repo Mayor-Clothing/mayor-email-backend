@@ -10,11 +10,11 @@
 // display-sort convention, not multiple values — one qty + one price per slot.
 const { formatAddrHS, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
 
-const QTY_PROPS   = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5'];
-const PRICE_PROPS = ['n_price_1', 'z_price_2', 'z_price_3', 'z_price_4', 'z_price_5'];
-const ORIG_PRICE_PROPS = ['orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_price_4', 'orig_price_5'];
-const PRODUCT_PAGE_PROPS = ['product_page_1', 'product_page_2', 'product_page_3', 'product_page_4', 'product_page_5'];
-const MOCKUP_PROPS = ['mockup_1', 'mockup_2', 'mockup_3', 'mockup_4', 'mockup_5'];
+const QTY_PROPS   = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5', 'z_quantity_6'];
+const PRICE_PROPS = ['n_price_1', 'z_price_2', 'z_price_3', 'z_price_4', 'z_price_5', 'z_price_6'];
+const ORIG_PRICE_PROPS = ['orig_price_1', 'orig_price_2', 'orig_price_3', 'orig_price_4', 'orig_price_5', 'orig_price_6'];
+const PRODUCT_PAGE_PROPS = ['product_page_1', 'product_page_2', 'product_page_3', 'product_page_4', 'product_page_5', 'product_page_6'];
+const MOCKUP_PROPS = ['mockup_1', 'mockup_2', 'mockup_3', 'mockup_4', 'mockup_5', 'mockup_6'];
 
 // HubSpot's Order Status dropdown stores an internal VALUE; Matt renamed two
 // option labels (Pending -> "In Progress", Shipped -> "In Transit") but kept the
@@ -30,9 +30,9 @@ const statusToValue = (l) => { const s = String(l == null ? '' : l).trim(); retu
 const INVOICE_PROPERTIES = [
   'order_number', 'club', 'c_billing_address', 'shippingbilling_address', 'ship_date',
   'y_payment_link', 'customer_email', 'product_page',
-  'product_1', 'product_2', 'product_3', 'product_4', 'product_5',
-  'description_1', 'description_2', 'description_3', 'description_4', 'description_5',
-  'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5',
+  'product_1', 'product_2', 'product_3', 'product_4', 'product_5', 'product_6',
+  'description_1', 'description_2', 'description_3', 'description_4', 'description_5', 'description_6',
+  'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5', 'sizes_6',
   ...QTY_PROPS, ...PRICE_PROPS, ...ORIG_PRICE_PROPS, ...PRODUCT_PAGE_PROPS, ...MOCKUP_PROPS,
   'za_embroidery', 'zb_art_setup', 'z_sample_reimbursement', 'custom_main_label', 'shipping_cost',
   'rush_fee', 'payment_terms', 'strike_embroidery', 'strike_art', 'strike_shipping', 'zf_delivered_date',
@@ -65,7 +65,7 @@ function dealToRenderPayload(deal, docType) {
 
   // Line items: mirror the invoice-generator tab's build (product-as-URL -> image).
   const line_items = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const sizes = (p['sizes_' + (i + 1)] || '').trim();
     const desc = cleanDescription((p['description_' + (i + 1)] || '').trim());
     let qty = n(p[QTY_PROPS[i]]);
