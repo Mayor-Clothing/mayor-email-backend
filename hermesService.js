@@ -1,9 +1,9 @@
 // Hermes core: generate a document from a HubSpot deal, and the status
 // transitions. Shared by the HTTP route, the webhook fast-path, and the poll.
 
-const { getInvoiceDeal, searchDeals, clearDealTrigger, setDealOrderStatus } = require('./hubspot');
+const { getInvoiceDeal, searchDeals, clearDealTrigger } = require('./hubspot');
 const { alertError } = require('./alerts');
-const { dealToRenderPayload, INVOICE_PROPERTIES, statusToValue } = require('./hermesMapping');
+const { dealToRenderPayload, INVOICE_PROPERTIES } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
 const { persistOrder, setOrderStatus, dealDocPresence, fetchDocPresenceIndex } = require('./googleStore');
 
@@ -74,14 +74,13 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
   };
 }
 
+// Status is manual now, driven entirely by the HubSpot Order Status dropdown
+// (see markPaid below) -- this only writes the tracking number to the sheet.
+// It no longer sets "In Transit" itself or writes back to HubSpot's dropdown.
 async function markInTransit(dealId) {
   const deal = await getInvoiceDeal(dealId, ['order_number', TRIGGER.tracking]);
   const p = deal.properties || {};
-  const res = await setOrderStatus({ orderNumber: p.order_number, status: 'In Transit', tracking: p[TRIGGER.tracking] });
-  // Mirror the status onto the HubSpot dropdown so it matches the sheet.
-  try { await setDealOrderStatus(dealId, statusToValue('In Transit')); }
-  catch (e) { console.error(`setDealOrderStatus In Transit for deal ${dealId} failed:`, e.message); }
-  return res;
+  return setOrderStatus({ orderNumber: p.order_number, tracking: p[TRIGGER.tracking] });
 }
 
 
@@ -98,17 +97,16 @@ function inHandReached(v) {
   return ms <= todayUTC;
 }
 
+// Status is manual now, driven entirely by the HubSpot Order Status dropdown
+// (see markPaid below) -- this only writes the delivered date to the sheet.
+// It no longer sets "Delivered" itself or writes back to HubSpot's dropdown.
 async function markDelivered(dealId) {
   const deal = await getInvoiceDeal(dealId, ['order_number', TRIGGER.delivered]);
   const p = deal.properties || {};
   if (!inHandReached(p[TRIGGER.delivered])) {
     return { action: 'delivered', orderNumber: p.order_number, skipped: 'in hand date is in the future' };
   }
-  const res = await setOrderStatus({ orderNumber: p.order_number, status: 'Delivered', deliveredDate: p[TRIGGER.delivered] });
-  // Mirror the status onto the HubSpot dropdown so it matches the sheet.
-  try { await setDealOrderStatus(dealId, statusToValue('Delivered')); }
-  catch (e) { console.error(`setDealOrderStatus Delivered for deal ${dealId} failed:`, e.message); }
-  return res;
+  return setOrderStatus({ orderNumber: p.order_number, deliveredDate: p[TRIGGER.delivered] });
 }
 
 // Status is manual now — Matt sets "In Progress" after payment. A Nickel "paid"
