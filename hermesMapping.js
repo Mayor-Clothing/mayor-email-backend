@@ -41,6 +41,8 @@ const INVOICE_PROPERTIES = [
   // as the "in transit" trigger elsewhere; print_background is Matt's print
   // swatch/background image property).
   'dealname', 'dealstage', 'order_status', 'zg_tracking_number', 'print_background',
+  // A separate manual dropdown from Order Status -- "Awaiting Payment" / "Paid".
+  'payment_status',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.
@@ -132,6 +134,7 @@ function dealToRenderPayload(deal, docType) {
     deal_name: p.dealname || '',
     deal_stage: p.dealstage || '',
     order_status: statusToLabel(p.order_status),   // dropdown VALUE -> display LABEL for the sheet
+    payment_status: p.payment_status || '',   // its own dropdown, values already match the display text
     tracking_number: p.zg_tracking_number || '',
     print_background: p.print_background || '',
     order_number: p.order_number || '',

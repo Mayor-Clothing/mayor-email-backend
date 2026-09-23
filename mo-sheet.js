@@ -54,6 +54,11 @@ const INFO_DEAL_COL = 7;
 // text as the HubSpot deal name. Blank on rows written before this existed.
 const INFO_DEALNAME_COL = 8;
 
+// payment_status (a separate manual dropdown from Order Status -- "Awaiting
+// Payment" / "Paid") is appended at Order Info J(9). Blank on rows written
+// before this existed, and on any order Matt hasn't set it on yet.
+const INFO_PAYMENTSTATUS_COL = 9;
+
 // Pure upsert key: find the row (0-based array index, header at 0) to write into.
 // Prefer a STABLE deal_id match so renaming an order in HubSpot updates the
 // existing row instead of forking a new one and orphaning the old (F10). If no
@@ -82,4 +87,4 @@ function firstEmptyRow(rows, orderIdx) {
   return rows.length + 1;
 }
 
-module.exports = { COLUMNS, COL, buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, matchRowIndex, firstEmptyRow };
+module.exports = { COLUMNS, COL, buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, INFO_PAYMENTSTATUS_COL, matchRowIndex, firstEmptyRow };

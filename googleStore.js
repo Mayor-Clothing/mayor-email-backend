@@ -12,7 +12,7 @@
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
-const { buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
+const { buildRow, INFO_DEAL_COL, INFO_DEALNAME_COL, INFO_PAYMENTSTATUS_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
 const { parseShipDate } = require('./hubspotFormat');
 
 // No fallback: the old hardcoded id ('152hyxQz…') is the DEAD pre-reorg sheet.
@@ -276,7 +276,7 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
     const tab = docType === 'invoice' ? 'Invoices' : 'Order Confirmations';
     const batch = await withRetry('read Order Info + detail tab', () => sheets.spreadsheets.values.batchGet({
       spreadsheetId: SHEET_ID,
-      ranges: ['Order Info!A:I', `${tab}!A:H`],
+      ranges: ['Order Info!A:J', `${tab}!A:H`],
     }));
     const ranges = (batch.data && batch.data.valueRanges) || [];
     const infoRows = (ranges[0] && ranges[0].values) || [];
@@ -284,7 +284,7 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
     const infoIdx = matchRowIndex(infoRows, INFO_DEAL_COL, 0, dealId, orderNumber);
     if (infoIdx < 1) {
       await writeRow(sheets, 'Order Info', { dealId, orderNumber },
-        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId, payload.deal_name || ''].map(sheetSafe),
+        [orderNumber, payload.club || '', payload.ship_date || '', payload.customer_email || '', status, '', '', dealId, payload.deal_name || '', payload.payment_status || ''].map(sheetSafe),
         infoRows);
       // customer_email can be a comma/semicolon list (see portal.js emailInList) --
       // pre-register each address so every recipient can log in, not just the first.
@@ -305,6 +305,11 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       }
       if (payload.deal_name && String(row[INFO_DEALNAME_COL] || '') !== payload.deal_name) {
         updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name)]] });
+      }
+      // Payment Status is its own manual dropdown from HubSpot -- write it
+      // whenever it's set and differs (any direction, same as Order Status).
+      if (payload.payment_status && String(row[INFO_PAYMENTSTATUS_COL] || '') !== payload.payment_status) {
+        updates.push({ range: `Order Info!J${targetRow}`, values: [[sheetSafe(payload.payment_status)]] });
       }
       // Keep the email column in sync with HubSpot -- previously only set when the
       // row was first created, so adding a second email to an existing deal (or
