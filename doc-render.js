@@ -108,11 +108,6 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       doc.fontSize(16).font('Times-Roman')
          .text(docTitle, margin, margin, { align: 'center', width: contentW, characterSpacing: 3 });
 
-      // Logo - no border, just image
-      try {
-        doc.image(logoPath, pageW - margin - 95, margin - 6, { width: 88 });
-      } catch (e) {}
-
       // Horizontal rule
       doc.moveTo(margin, margin + 30).lineTo(pageW - margin, margin + 30).lineWidth(0.75).stroke('black');
 
