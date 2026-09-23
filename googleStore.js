@@ -306,6 +306,15 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       if (payload.deal_name && String(row[INFO_DEALNAME_COL] || '') !== payload.deal_name) {
         updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name)]] });
       }
+      // Keep the email column in sync with HubSpot -- previously only set when the
+      // row was first created, so adding a second email to an existing deal (or
+      // correcting a typo) never reached the sheet no matter how many times
+      // Refresh ran. Also (re-)register every address so each can log in.
+      if (payload.customer_email && String(row[3] || '') !== payload.customer_email) {
+        updates.push({ range: `Order Info!D${targetRow}`, values: [[sheetSafe(payload.customer_email)]] });
+        const emails = String(payload.customer_email).split(/[,;]+/).map((e) => e.trim()).filter(Boolean);
+        for (const email of emails) await upsertUserEmail(sheets, email, payload.club);
+      }
       if (updates.length) await withRetry('update Order Info', () => sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, resource: { valueInputOption: 'USER_ENTERED', data: updates } }));
     }
 
