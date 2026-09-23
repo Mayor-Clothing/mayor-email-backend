@@ -138,13 +138,15 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       }
       ly += doc.heightOfString('Customer: ' + club, { width: leftW }) + 10;
 
-      const hasShipping = shipping_address && shipping_address.trim() && shipping_address.trim() !== address.trim();
+      const hasAddress = address && address.trim();
+      const hasShipping = hasAddress && shipping_address && shipping_address.trim() && shipping_address.trim() !== address.trim();
+      const primaryAddress = hasShipping ? address : (address || shipping_address);
 
       doc.font('Times-Bold').text(hasShipping ? 'Billing Address:' : 'Shipping / Billing Address:', margin, ly, { width: leftW });
       ly += 13;
 
       // Split address on newlines only — launcher handles the formatting
-      const addrLines = addressLines(address);
+      const addrLines = addressLines(primaryAddress);
       addrLines.forEach(line => {
         doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
         // Advance by what the line ACTUALLY occupied. A long line (an address whose
