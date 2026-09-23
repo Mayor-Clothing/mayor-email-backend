@@ -337,7 +337,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       if (custom_label) totRows.push(['Custom Woven Labels & Hang Tags', fmtMoney(custom_label), false, false]);
       if (num(commission) !== 0) totRows.push(['Commission', commission, false, false]);
       totRows.push(['Shipping', fmtMoney(shipping), strike_shipping, false]);
-      if (rush_fee && num(rush_fee) !== 0) totRows.push(['Rush Fee', fmtMoney(rush_fee), false, false]);
+      if (rush_fee && num(rush_fee) !== 0) totRows.push(['Expedited Order', fmtMoney(rush_fee), false, false]);
       if (num(sample_reimbursement) !== 0) totRows.push(['Sample Reimbursement', sample_reimbursement, false, false]);
       totRows.push(['Total', fmtMoney(effectiveTotal), false, true]);
 
