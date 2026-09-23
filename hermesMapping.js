@@ -147,7 +147,7 @@ function dealToRenderPayload(deal, docType) {
     shipping_address: shippingBlock,
     ship_date: parseShipDate(p.ship_date || ''),
     in_hand_date: parseShipDate(p.zf_delivered_date || ''),  // HubSpot "In Hand Date" -> sheet col M
-    date_label: 'Ship Date',                // delivery date dropped (blueprint §4.3)
+    date_label: 'Ship By',                  // delivery date dropped (blueprint §4.3)
     customer_email: p.customer_email || '',
     product_page: p.product_page || '',
     payment_link: links[0] || '',

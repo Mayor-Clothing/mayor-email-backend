@@ -82,7 +82,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
   );
   const {
     order_number = '', club = '', address = '', shipping_address = '', ship_date = '',
-    date_label = 'Ship Date',
+    date_label = 'Ship By',
     payment_link = '', payment_link_2 = '', w9_link = DEFAULT_W9,
     line_items = [], subtotal = 0, embroidery, art_setup, strike_embroidery = true, strike_art = true,
     shipping = 0, strike_shipping = false, sample_reimbursement = null,
@@ -125,9 +125,9 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       // ── LEFT COLUMN ──
       let ly = bodyY;
 
-      doc.fontSize(9.5).font('Times-Bold').text('Order Number', margin, ly, { continued: true, width: leftW })
+      doc.fontSize(9.5).font('Times-Bold').text('Order', margin, ly, { continued: true, width: leftW })
          .font('Times-Roman').text(': ' + order_number, { width: leftW });
-      ly += doc.heightOfString('Order Number: ' + order_number, { width: leftW }) + 6;
+      ly += doc.heightOfString('Order: ' + order_number, { width: leftW }) + 6;
 
       const clubLabel = 'Customer';
       doc.font('Times-Bold').text(clubLabel, margin, ly, { continued: true, width: leftW })
@@ -143,6 +143,18 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const hasShipping = hasAddress && shipping_address && shipping_address.trim() && shipping_address.trim() !== address.trim();
       const primaryAddress = hasShipping ? address : (address || shipping_address);
 
+      // Shipping shown above Billing, matching the order page.
+      if (hasShipping) {
+        doc.font('Times-Bold').fontSize(9.5).text('Shipping Address:', margin, ly, { width: leftW });
+        ly += 13;
+        const shipLines = addressLines(shipping_address);
+        shipLines.forEach(line => {
+          doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
+          ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
+        });
+        ly += 8;
+      }
+
       doc.font('Times-Bold').text(hasShipping ? 'Billing Address:' : 'Shipping / Billing Address:', margin, ly, { width: leftW });
       ly += 13;
 
@@ -156,17 +168,6 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
       });
       ly += 8;
-
-      if (hasShipping) {
-        doc.font('Times-Bold').fontSize(9.5).text('Shipping Address:', margin, ly, { width: leftW });
-        ly += 13;
-        const shipLines = addressLines(shipping_address);
-        shipLines.forEach(line => {
-          doc.font('Times-Roman').fontSize(9).text(line, margin, ly, { width: leftW });
-          ly += Math.max(12, doc.heightOfString(line, { width: leftW }));
-        });
-        ly += 8;
-      }
 
       // Skip the row when there's no date — it used to print a bare "Ship Date:".
       if (ship_date && String(ship_date).trim()) {
@@ -199,7 +200,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       ly += doc.heightOfString(termsText + 'Here is our W-9.', { width: leftW }) + 14;
 
       if (isSplitPayment) {
-        doc.fontSize(9.5).font('Times-Bold').text('Payment Link:', margin, ly, { width: leftW });
+        doc.fontSize(9.5).font('Times-Bold').text('Payment:', margin, ly, { width: leftW });
         ly += 13;
         doc.fontSize(9).font('Times-Roman')
            .text('50% Deposit', margin, ly, { link: payment_link || '#', underline: true, width: leftW });
@@ -207,7 +208,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.fontSize(9).font('Times-Roman')
            .text('50% on Receipt', margin, ly, { link: payment_link_2, underline: true, width: leftW });
       } else {
-        doc.fontSize(9.5).font('Times-Bold').text('Payment Link:', margin, ly, { width: leftW });
+        doc.fontSize(9.5).font('Times-Bold').text('Payment:', margin, ly, { width: leftW });
         ly += 13;
         doc.fontSize(9).font('Times-Roman')
            .text('Click Here', margin, ly, { link: payment_link || '#', underline: true, width: leftW });
@@ -389,7 +390,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           drawRow('Art Setup', artDisplay, strike_art);
         }
       }
-      if (custom_label) drawRow('Custom Main Label', fmtMoney(custom_label));
+      if (custom_label) drawRow('Custom Woven Labels & Hang Tags', fmtMoney(custom_label));
       // Guard on the NUMBER, same as Sample Reimbursement: the sheet stores "0",
       // which is a truthy string and would print a bare unformatted 0 row.
       if (num(commission) !== 0) drawRow('Commission', commission);
