@@ -166,7 +166,8 @@ function dealToRenderPayload(deal, docType) {
     sample_reimbursement: sampleReimb > 0 ? `(${sampleReimb.toFixed(2)})` : null,
     custom_label: label > 0 ? label : null,
     rush_fee: rush > 0 ? rush : null,
-    commission: commission > 0 ? `(${commission.toFixed(2)})` : null,
+    // Works whether Matt types it as "152" or "-152" -- either way it's a deduction.
+    commission: commission !== 0 ? `(${Math.abs(commission).toFixed(2)})` : null,
   };
 }
 
