@@ -216,7 +216,8 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       y += hH;
 
       line_items.forEach((item, i) => {
-        const descText = [((item.description || '').replace(/\\n/g, '\n').replace(/ \/ /g, '\n')), item.sizes].filter(Boolean).join('\n');
+        const sizesText = (item.sizes || '').trim();
+        const descText = [((item.description || '').replace(/\\n/g, '\n').replace(/ \/ /g, '\n')), sizesText ? 'Sizes: ' + sizesText : ''].filter(Boolean).join('\n');
         const imgBuf = imageBuffers[i] || null;
         const imgSize = 52;
         const descH = doc.fontSize(8.5).heightOfString(descText, { width: dW - 8, lineGap: 1.5 });
