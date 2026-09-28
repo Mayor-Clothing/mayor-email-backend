@@ -75,7 +75,7 @@ function formatStructuredAddr(props, prefix) {
   const cityStateZip = [[val('city'), val(stateKey(prefix))].filter(Boolean).join(', '), val('postal_code')].filter(Boolean).join(' ');
   if (cityStateZip) lines.push(cityStateZip);
   const country = val('country');
-  if (country && !/^(us|usa|united states)$/i.test(country)) lines.push(country);
+  if (country) lines.push(country);
   const phone = val('phone_number');
   if (phone) lines.push(phone);
   return lines.join('\n');
