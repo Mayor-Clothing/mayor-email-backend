@@ -101,10 +101,11 @@ function hasStructuredAddr(props, prefix) {
 // Product #1's description used to be one free-text field; Matt broke it into
 // discrete fields (Print/Icons, Colorway, Embroidery A, Embroidery B, and a
 // Custom Woven Labels & Hang Tags note tied to that fee). Sizes stays a
-// separate field/column entirely (unchanged, own "Sizes: " line). Embroidery
-// A/B hold placement + details together ("(Left Chest): Shield Logo ...")
-// since placement varies per order -- the fixed "Embroidery " label is
-// prepended here, not baked into the field.
+// separate field/column entirely (unchanged, own "Sizes: " line). Print/Icons
+// is shown exactly as typed, no label added -- Matt types whatever he wants
+// there directly. Embroidery A/B hold placement + details together
+// ("(Left Chest): Shield Logo ...") since placement varies per order -- the
+// fixed "Embroidery " label is prepended here, not baked into the field.
 const DESC1_FIELDS = ['description_printicons_1', 'description_colorway_1', 'description_embroidery_a_1', 'description_embroidery_b_1', 'description_custom_woven_labels__hang_tags'];
 
 function hasStructuredDescription1(props) {
@@ -119,7 +120,7 @@ function formatStructuredDescription1(props) {
   const embA = val('description_embroidery_a_1');
   const embB = val('description_embroidery_b_1');
   const wovenLabels = val('description_custom_woven_labels__hang_tags');
-  if (printicons) lines.push('Icons: ' + printicons);
+  if (printicons) lines.push(printicons);
   if (colorway) lines.push('Colorway: ' + colorway);
   if (embA) lines.push('Embroidery ' + embA);
   if (embB) lines.push('Embroidery ' + embB);
