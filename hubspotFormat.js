@@ -57,6 +57,16 @@ const formatAddrHS = (addr) => {
     .replace(/\n+/g, '\n').trim();
 };
 
+// HubSpot's shipping/billing phone fields store E.164 ("+17244953300") --
+// render it the way Matt's addresses always have: "(724) 495-3300".
+function formatPhone(raw) {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  const ten = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+  if (ten.length === 10) return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
+  return String(raw).trim();
+}
+
 // Builds the same "Company \n Attn: Contact \n Street \n City, ST Zip \n Phone"
 // block formatAddrHS produces from free text, but from ten discrete HubSpot
 // fields instead of guessing at line breaks. `prefix` is 'shipping_address_' or
@@ -76,7 +86,7 @@ function formatStructuredAddr(props, prefix) {
   if (cityStateZip) lines.push(cityStateZip);
   const country = val('country');
   if (country) lines.push(country);
-  const phone = val('phone_number');
+  const phone = formatPhone(val('phone_number'));
   if (phone) lines.push(phone);
   return lines.join('\n');
 }
