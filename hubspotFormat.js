@@ -98,33 +98,41 @@ function hasStructuredAddr(props, prefix) {
     .some((key) => String(props[prefix + key] || '').trim());
 }
 
-// Product #1's description used to be one free-text field; Matt broke it into
-// discrete fields (Print/Icons, Colorway, Embroidery A, Embroidery B, and a
-// Custom Woven Labels & Hang Tags note tied to that fee). Sizes stays a
-// separate field/column entirely (unchanged, own "Sizes: " line). Print/Icons
-// is shown exactly as typed, no label added -- Matt types whatever he wants
-// there directly. Embroidery A/B hold placement + details together
-// ("(Left Chest): Shield Logo ...") since placement varies per order -- the
-// fixed "Embroidery " label is prepended here, not baked into the field.
-const DESC1_FIELDS = ['description_printicons_1', 'description_colorway_1', 'description_embroidery_a_1', 'description_embroidery_b_1', 'description_custom_woven_labels__hang_tags'];
-
-function hasStructuredDescription1(props) {
-  return DESC1_FIELDS.some((key) => String(props[key] || '').trim());
+// Each item's description used to be one free-text field; Matt broke it into
+// discrete fields per item (Print/Icons, Colorway, Embroidery A, Embroidery
+// B), plus a single Custom Woven Labels & Hang Tags note (no per-item suffix
+// -- it's tied to that one order-level fee, shown under item #1 only). Sizes
+// stays a separate field/column entirely (unchanged, own "Sizes: " line).
+// Print/Icons is shown exactly as typed, no label added -- Matt types
+// whatever he wants there directly. Embroidery A/B hold placement + details
+// together ("(Left Chest): Shield Logo ...") since placement varies per
+// order -- the fixed "Embroidery " label is prepended here, not baked into
+// the field.
+function descFields(n) {
+  return ['description_printicons_' + n, 'description_colorway_' + n, 'description_embroidery_a_' + n, 'description_embroidery_b_' + n];
 }
 
-function formatStructuredDescription1(props) {
+function hasStructuredDescription(props, n) {
+  const fields = descFields(n);
+  if (n === 1) fields.push('description_custom_woven_labels__hang_tags');
+  return fields.some((key) => String(props[key] || '').trim());
+}
+
+function formatStructuredDescription(props, n) {
   const val = (key) => String(props[key] || '').trim();
   const lines = [];
-  const printicons = val('description_printicons_1');
-  const colorway = val('description_colorway_1');
-  const embA = val('description_embroidery_a_1');
-  const embB = val('description_embroidery_b_1');
-  const wovenLabels = val('description_custom_woven_labels__hang_tags');
+  const printicons = val('description_printicons_' + n);
+  const colorway = val('description_colorway_' + n);
+  const embA = val('description_embroidery_a_' + n);
+  const embB = val('description_embroidery_b_' + n);
   if (printicons) lines.push(printicons);
   if (colorway) lines.push('Colorway: ' + colorway);
   if (embA) lines.push('Embroidery ' + embA);
   if (embB) lines.push('Embroidery ' + embB);
-  if (wovenLabels) lines.push('Custom Woven Labels & Hang Tags: ' + wovenLabels);
+  if (n === 1) {
+    const wovenLabels = val('description_custom_woven_labels__hang_tags');
+    if (wovenLabels) lines.push('Custom Woven Labels & Hang Tags: ' + wovenLabels);
+  }
   return lines.join('\n');
 }
 
@@ -166,4 +174,4 @@ function qtyFromSizes(sizesVal) {
   return matches.reduce((t, m) => t + (parseInt(m.replace(/[^\d]/g, ''), 10) || 0), 0);
 }
 
-module.exports = { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription1, formatStructuredDescription1, parseShipDate, cleanDescription, qtyFromSizes, HS_STATES };
+module.exports = { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, parseShipDate, cleanDescription, qtyFromSizes, HS_STATES };
