@@ -8,7 +8,7 @@
 
 // Real HubSpot property names, per slot (1..5). The letter prefixes are Matt's
 // display-sort convention, not multiple values — one qty + one price per slot.
-const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
+const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, wovenLabelsField, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
 
 // The ten discrete fields making up a structured address, per prefix
 // ('shipping_address_' or 'billing_address_'). Matt migrated off the old
@@ -43,8 +43,7 @@ const INVOICE_PROPERTIES = [
   'y_payment_link', 'customer_email', 'product_page',
   'product_1', 'product_2', 'product_3', 'product_4', 'product_5', 'product_6',
   'description_1', 'description_2', 'description_3', 'description_4', 'description_5', 'description_6',
-  ...[1, 2, 3, 4, 5, 6].flatMap((n) => ['description_printicons_' + n, 'description_colorway_' + n, 'description_embroidery_a_' + n, 'description_embroidery_b_' + n]),
-  'description_custom_woven_labels__hang_tags',
+  ...[1, 2, 3, 4, 5, 6].flatMap((n) => ['description_printicons_' + n, 'description_colorway_' + n, 'description_embroidery_a_' + n, 'description_embroidery_b_' + n, wovenLabelsField(n)]),
   'sizes_1', 'sizes_2', 'sizes_3', 'sizes_4', 'sizes_5', 'sizes_6',
   ...QTY_PROPS, ...PRICE_PROPS, ...ORIG_PRICE_PROPS, ...PRODUCT_PAGE_PROPS, ...MOCKUP_PROPS,
   'za_embroidery', 'zb_art_setup', 'z_sample_reimbursement', 'custom_main_label', 'shipping_cost',
