@@ -136,7 +136,11 @@ function dealToRenderPayload(deal, docType) {
   // billing_address_*) instead of one free-text field each. Billing still
   // auto-shares with shipping when left completely blank (one combined box,
   // same as the old behavior) — it just no longer requires the old free-text
-  // fields to do it. Deals never migrated (neither side has any of the new
+  // fields to do it. Once a deal has ANY structured field set on either side,
+  // the old c_billing_address text is ignored entirely for that deal (it's
+  // often stale leftover text from before the migration, and Matt leaving the
+  // new billing fields blank means he wants the collapsed box, not the old
+  // text resurfacing). Deals never migrated (neither side has any of the new
   // fields set) keep the old behavior: shippingbilling_address is the primary
   // address, c_billing_address is the separate billing address when present
   // and different.
@@ -149,13 +153,10 @@ function dealToRenderPayload(deal, docType) {
     if (billStructured) {
       addressBlock = formatStructuredAddr(p, 'billing_address_');
       shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
-    } else if (billingAddr) {
-      addressBlock = formatAddrHS(billingAddr);
-      shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
     } else {
-      // Billing is entirely blank (no structured fields, no legacy field) --
-      // collapse to a single box built from the shipping address, same as the
-      // old "billing left blank" behavior.
+      // Billing's structured fields are blank -- collapse to a single box
+      // built from the shipping address, ignoring any stale c_billing_address
+      // text left over from before the migration.
       addressBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : (mainAddr ? formatAddrHS(mainAddr) : '');
       shippingBlock = '';
     }
