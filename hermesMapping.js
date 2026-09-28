@@ -16,7 +16,9 @@ const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, parseShipDate, cl
 // each side no longer depends on guessing at line breaks in a pasted blob.
 const ADDR_SUFFIXES = ['receiver_or_company_name', 'contact_name', 'address_1', 'address_2', 'address_3', 'city', 'state', 'postal_code', 'country', 'phone_number'];
 const SHIPPING_ADDR_PROPS = ADDR_SUFFIXES.map((s) => 'shipping_address_' + s);
-const BILLING_ADDR_PROPS = ADDR_SUFFIXES.map((s) => 'billing_address_' + s);
+// Billing's state field is named "stateprov" in HubSpot, not "state" -- every
+// other suffix matches the shipping side exactly.
+const BILLING_ADDR_PROPS = ADDR_SUFFIXES.map((s) => 'billing_address_' + (s === 'state' ? 'stateprov' : s));
 
 const QTY_PROPS   = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5', 'z_quantity_6'];
 const PRICE_PROPS = ['n_price_1', 'z_price_2', 'z_price_3', 'z_price_4', 'z_price_5', 'z_price_6'];

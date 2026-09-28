@@ -61,6 +61,9 @@ const formatAddrHS = (addr) => {
 // block formatAddrHS produces from free text, but from ten discrete HubSpot
 // fields instead of guessing at line breaks. `prefix` is 'shipping_address_' or
 // 'billing_address_'; props holds the raw HubSpot property values.
+// Billing's state field is named "stateprov" in HubSpot; shipping's is "state".
+const stateKey = (prefix) => (prefix === 'billing_address_' ? 'stateprov' : 'state');
+
 function formatStructuredAddr(props, prefix) {
   const val = (key) => String(props[prefix + key] || '').trim();
   const lines = [];
@@ -69,7 +72,7 @@ function formatStructuredAddr(props, prefix) {
   if (company) lines.push(company);
   if (contact) lines.push('Attn: ' + contact);
   ['address_1', 'address_2', 'address_3'].forEach((key) => { const v = val(key); if (v) lines.push(v); });
-  const cityStateZip = [[val('city'), val('state')].filter(Boolean).join(', '), val('postal_code')].filter(Boolean).join(' ');
+  const cityStateZip = [[val('city'), val(stateKey(prefix))].filter(Boolean).join(', '), val('postal_code')].filter(Boolean).join(' ');
   if (cityStateZip) lines.push(cityStateZip);
   const country = val('country');
   if (country && !/^(us|usa|united states)$/i.test(country)) lines.push(country);
@@ -81,7 +84,7 @@ function formatStructuredAddr(props, prefix) {
 // True if any of the ten structured fields for this prefix have a value —
 // signals "this deal has been migrated to structured address fields."
 function hasStructuredAddr(props, prefix) {
-  return ['receiver_or_company_name', 'contact_name', 'address_1', 'address_2', 'address_3', 'city', 'state', 'postal_code', 'country', 'phone_number']
+  return ['receiver_or_company_name', 'contact_name', 'address_1', 'address_2', 'address_3', 'city', stateKey(prefix), 'postal_code', 'country', 'phone_number']
     .some((key) => String(props[prefix + key] || '').trim());
 }
 
