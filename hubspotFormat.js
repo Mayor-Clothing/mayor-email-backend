@@ -57,6 +57,34 @@ const formatAddrHS = (addr) => {
     .replace(/\n+/g, '\n').trim();
 };
 
+// Builds the same "Company \n Attn: Contact \n Street \n City, ST Zip \n Phone"
+// block formatAddrHS produces from free text, but from ten discrete HubSpot
+// fields instead of guessing at line breaks. `prefix` is 'shipping_address_' or
+// 'billing_address_'; props holds the raw HubSpot property values.
+function formatStructuredAddr(props, prefix) {
+  const val = (key) => String(props[prefix + key] || '').trim();
+  const lines = [];
+  const company = val('receiver_or_company_name');
+  const contact = val('contact_name');
+  if (company) lines.push(company);
+  if (contact) lines.push('Attn: ' + contact);
+  ['address_1', 'address_2', 'address_3'].forEach((key) => { const v = val(key); if (v) lines.push(v); });
+  const cityStateZip = [[val('city'), val('state')].filter(Boolean).join(', '), val('postal_code')].filter(Boolean).join(' ');
+  if (cityStateZip) lines.push(cityStateZip);
+  const country = val('country');
+  if (country && !/^(us|usa|united states)$/i.test(country)) lines.push(country);
+  const phone = val('phone_number');
+  if (phone) lines.push(phone);
+  return lines.join('\n');
+}
+
+// True if any of the ten structured fields for this prefix have a value —
+// signals "this deal has been migrated to structured address fields."
+function hasStructuredAddr(props, prefix) {
+  return ['receiver_or_company_name', 'contact_name', 'address_1', 'address_2', 'address_3', 'city', 'state', 'postal_code', 'country', 'phone_number']
+    .some((key) => String(props[prefix + key] || '').trim());
+}
+
 function parseShipDate(raw) {
   if (!raw || raw === '--') return '';
   raw = String(raw).replace(/\s*\(.*?\)\s*$/, '').trim();
@@ -95,4 +123,4 @@ function qtyFromSizes(sizesVal) {
   return matches.reduce((t, m) => t + (parseInt(m.replace(/[^\d]/g, ''), 10) || 0), 0);
 }
 
-module.exports = { formatAddrHS, parseShipDate, cleanDescription, qtyFromSizes, HS_STATES };
+module.exports = { formatAddrHS, formatStructuredAddr, hasStructuredAddr, parseShipDate, cleanDescription, qtyFromSizes, HS_STATES };

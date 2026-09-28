@@ -8,7 +8,15 @@
 
 // Real HubSpot property names, per slot (1..5). The letter prefixes are Matt's
 // display-sort convention, not multiple values — one qty + one price per slot.
-const { formatAddrHS, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
+const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
+
+// The ten discrete fields making up a structured address, per prefix
+// ('shipping_address_' or 'billing_address_'). Matt migrated off the old
+// single free-text fields (shippingbilling_address / c_billing_address) so
+// each side no longer depends on guessing at line breaks in a pasted blob.
+const ADDR_SUFFIXES = ['receiver_or_company_name', 'contact_name', 'address_1', 'address_2', 'address_3', 'city', 'state', 'postal_code', 'country', 'phone_number'];
+const SHIPPING_ADDR_PROPS = ADDR_SUFFIXES.map((s) => 'shipping_address_' + s);
+const BILLING_ADDR_PROPS = ADDR_SUFFIXES.map((s) => 'billing_address_' + s);
 
 const QTY_PROPS   = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5', 'z_quantity_6'];
 const PRICE_PROPS = ['n_price_1', 'z_price_2', 'z_price_3', 'z_price_4', 'z_price_5', 'z_price_6'];
@@ -29,6 +37,7 @@ const statusToValue = (l) => { const s = String(l == null ? '' : l).trim(); retu
 // Every deal property Hermes needs to render a document. Request exactly these.
 const INVOICE_PROPERTIES = [
   'order_number', 'club', 'c_billing_address', 'shippingbilling_address', 'ship_date',
+  ...SHIPPING_ADDR_PROPS, ...BILLING_ADDR_PROPS,
   'y_payment_link', 'customer_email', 'product_page',
   'product_1', 'product_2', 'product_3', 'product_4', 'product_5', 'product_6',
   'description_1', 'description_2', 'description_3', 'description_4', 'description_5', 'description_6',
@@ -121,15 +130,28 @@ function dealToRenderPayload(deal, docType) {
   const commission = n(p.z_commission);
 
   // Address blocks + ship date — mirror mayor-tools' formatting rules exactly.
-  // shippingbilling_address is the primary address; c_billing_address is the
-  // separate billing address when present and different.
+  // Matt migrated to ten discrete fields per side (shipping_address_* /
+  // billing_address_*) instead of one free-text field each, so each side is
+  // now independent — no more auto-sharing when billing is left blank. Deals
+  // never migrated (neither side has any of the new fields set) keep the old
+  // behavior: shippingbilling_address is the primary address, c_billing_address
+  // is the separate billing address when present and different.
   const mainAddr = (p.shippingbilling_address || '').trim();
   const billingAddr = (p.c_billing_address || '').trim();
-  let addressBlock = mainAddr ? formatAddrHS(mainAddr) : '';
-  let shippingBlock = '';
-  if (billingAddr && billingAddr !== mainAddr) {
-    addressBlock = formatAddrHS(billingAddr);
-    shippingBlock = formatAddrHS(mainAddr);
+  const shipStructured = hasStructuredAddr(p, 'shipping_address_');
+  const billStructured = hasStructuredAddr(p, 'billing_address_');
+  let addressBlock, shippingBlock;
+  if (shipStructured || billStructured) {
+    addressBlock = billStructured ? formatStructuredAddr(p, 'billing_address_')
+      : (billingAddr ? formatAddrHS(billingAddr) : (mainAddr ? formatAddrHS(mainAddr) : ''));
+    shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
+  } else {
+    addressBlock = mainAddr ? formatAddrHS(mainAddr) : '';
+    shippingBlock = '';
+    if (billingAddr && billingAddr !== mainAddr) {
+      addressBlock = formatAddrHS(billingAddr);
+      shippingBlock = formatAddrHS(mainAddr);
+    }
   }
 
   return {
