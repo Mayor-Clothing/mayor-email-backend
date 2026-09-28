@@ -133,20 +133,32 @@ function dealToRenderPayload(deal, docType) {
 
   // Address blocks + ship date — mirror mayor-tools' formatting rules exactly.
   // Matt migrated to ten discrete fields per side (shipping_address_* /
-  // billing_address_*) instead of one free-text field each, so each side is
-  // now independent — no more auto-sharing when billing is left blank. Deals
-  // never migrated (neither side has any of the new fields set) keep the old
-  // behavior: shippingbilling_address is the primary address, c_billing_address
-  // is the separate billing address when present and different.
+  // billing_address_*) instead of one free-text field each. Billing still
+  // auto-shares with shipping when left completely blank (one combined box,
+  // same as the old behavior) — it just no longer requires the old free-text
+  // fields to do it. Deals never migrated (neither side has any of the new
+  // fields set) keep the old behavior: shippingbilling_address is the primary
+  // address, c_billing_address is the separate billing address when present
+  // and different.
   const mainAddr = (p.shippingbilling_address || '').trim();
   const billingAddr = (p.c_billing_address || '').trim();
   const shipStructured = hasStructuredAddr(p, 'shipping_address_');
   const billStructured = hasStructuredAddr(p, 'billing_address_');
   let addressBlock, shippingBlock;
   if (shipStructured || billStructured) {
-    addressBlock = billStructured ? formatStructuredAddr(p, 'billing_address_')
-      : (billingAddr ? formatAddrHS(billingAddr) : (mainAddr ? formatAddrHS(mainAddr) : ''));
-    shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
+    if (billStructured) {
+      addressBlock = formatStructuredAddr(p, 'billing_address_');
+      shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
+    } else if (billingAddr) {
+      addressBlock = formatAddrHS(billingAddr);
+      shippingBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : '';
+    } else {
+      // Billing is entirely blank (no structured fields, no legacy field) --
+      // collapse to a single box built from the shipping address, same as the
+      // old "billing left blank" behavior.
+      addressBlock = shipStructured ? formatStructuredAddr(p, 'shipping_address_') : (mainAddr ? formatAddrHS(mainAddr) : '');
+      shippingBlock = '';
+    }
   } else {
     addressBlock = mainAddr ? formatAddrHS(mainAddr) : '';
     shippingBlock = '';
