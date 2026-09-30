@@ -61,9 +61,13 @@ const formatAddrHS = (addr) => {
 // render it the way Matt's addresses always have: "(724) 495-3300".
 function formatPhone(raw) {
   if (!raw) return '';
-  const digits = String(raw).replace(/\D/g, '');
-  const ten = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
-  if (ten.length === 10) return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
+  let digits = String(raw).replace(/\D/g, '');
+  // A real 10-digit US number never starts with 1 (NANP area codes can't), so
+  // it's safe to keep stripping a leading "1" -- handles both the normal
+  // single country-code prefix and the occasional double-prefixed value
+  // ("+118647876608") that turns up in the raw HubSpot data.
+  while (digits.length > 10 && digits[0] === '1') digits = digits.slice(1);
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
   return String(raw).trim();
 }
 
