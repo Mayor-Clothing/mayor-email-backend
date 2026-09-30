@@ -77,10 +77,14 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
 // Status is manual now, driven entirely by the HubSpot Order Status dropdown
 // (see markPaid below) -- this only writes the tracking number to the sheet.
 // It no longer sets "In Transit" itself or writes back to HubSpot's dropdown.
+// Matt sometimes types multiple tracking numbers separated by " / " (a
+// multi-box shipment) -- only the first is ever shown/tracked; the rest just
+// live in HubSpot for his own reference.
 async function markInTransit(dealId) {
   const deal = await getInvoiceDeal(dealId, ['order_number', TRIGGER.tracking]);
   const p = deal.properties || {};
-  return setOrderStatus({ orderNumber: p.order_number, tracking: p[TRIGGER.tracking] });
+  const firstTracking = String(p[TRIGGER.tracking] || '').split(' / ')[0].trim();
+  return setOrderStatus({ orderNumber: p.order_number, tracking: firstTracking });
 }
 
 
