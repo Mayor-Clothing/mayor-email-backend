@@ -207,7 +207,8 @@ function dealToRenderPayload(deal, docType) {
     strike_art: strikeArt,
     shipping: n(p.shipping_cost),
     strike_shipping: strikeShip,
-    sample_reimbursement: sampleReimb > 0 ? `(${sampleReimb.toFixed(2)})` : null,
+    // Works whether Matt types it as "207" or "-207" -- either way it's a deduction.
+    sample_reimbursement: sampleReimb !== 0 ? `(${Math.abs(sampleReimb).toFixed(2)})` : null,
     custom_label: label > 0 ? label : null,
     rush_fee: rush > 0 ? rush : null,
     // Works whether Matt types it as "152" or "-152" -- either way it's a deduction.
