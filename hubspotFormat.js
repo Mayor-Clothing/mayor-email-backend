@@ -57,18 +57,24 @@ const formatAddrHS = (addr) => {
     .replace(/\n+/g, '\n').trim();
 };
 
-// HubSpot's shipping/billing phone fields store E.164 ("+17244953300") --
-// render it the way Matt's addresses always have: "(724) 495-3300".
+// HubSpot's shipping/billing phone fields store E.164 ("+17244953300"), with
+// an extension sometimes trailing as "+16317347139 ext 110" -- render it the
+// way Matt's addresses always have: "(631) 734-7139 x110".
 function formatPhone(raw) {
   if (!raw) return '';
-  let digits = String(raw).replace(/\D/g, '');
+  const str = String(raw).trim();
+  const extMatch = str.match(/^(.*?)\s*(?:ext\.?|extension|x)\s*(\d+)\s*$/i);
+  const mainRaw = extMatch ? extMatch[1] : str;
+  const ext = extMatch ? extMatch[2] : '';
+  let digits = mainRaw.replace(/\D/g, '');
   // A real 10-digit US number never starts with 1 (NANP area codes can't), so
   // it's safe to keep stripping a leading "1" -- handles both the normal
   // single country-code prefix and the occasional double-prefixed value
   // ("+118647876608") that turns up in the raw HubSpot data.
   while (digits.length > 10 && digits[0] === '1') digits = digits.slice(1);
-  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  return String(raw).trim();
+  if (digits.length !== 10) return str;
+  const formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return ext ? `${formatted} x${ext}` : formatted;
 }
 
 // Builds the same "Company \n Attn: Contact \n Street \n City, ST Zip \n Phone"
