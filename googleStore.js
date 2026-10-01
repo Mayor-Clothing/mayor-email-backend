@@ -28,7 +28,11 @@ const SHEET_CREDS = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || proces
 // USER_ENTERED auto-number conversion otherwise silently drops the zero (F/U 2026-09).
 function sheetSafe(v) {
   if (typeof v !== 'string') return v;
-  return /^[=+\-@\t\r]|^0\d/.test(v) ? `'${v}` : v;
+  // Google Sheets' USER_ENTERED parser treats a fully-parenthesized number as
+  // accounting notation for a negative value -- "(207.00)" silently becomes
+  // the number -207 instead of staying the literal credit string we wrote
+  // (sample_reimbursement, commission). Force it to stay text.
+  return /^[=+\-@\t\r]|^0\d|^\(\$?[\d,]+\.?\d*\)$/.test(v) ? `'${v}` : v;
 }
 
 function credsPresent() {
