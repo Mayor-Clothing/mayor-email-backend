@@ -335,11 +335,11 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           totRows.push(['Art Setup', artNum < 0 ? `(${fmtMoney(Math.abs(artNum))})` : fmtMoney(artNum), strike_art, false]);
         }
       }
+      if (num(sample_reimbursement) !== 0) totRows.push(['Sample Reimbursement', sample_reimbursement, false, false]);
       if (custom_label) totRows.push(['Custom Woven Labels & Hang Tags', fmtMoney(custom_label), false, false]);
       if (num(commission) !== 0) totRows.push(['Commission', commission, false, false]);
       if (shipping) totRows.push(['Shipping', fmtMoney(shipping), strike_shipping, false]);
       if (rush_fee && num(rush_fee) !== 0) totRows.push(['Expedited Order', fmtMoney(rush_fee), false, false]);
-      if (num(sample_reimbursement) !== 0) totRows.push(['Sample Reimbursement', sample_reimbursement, false, false]);
       totRows.push(['Total', fmtMoney(effectiveTotal), false, true]);
 
       const rowH2 = 17;
