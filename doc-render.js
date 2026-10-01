@@ -190,9 +190,9 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.text(ship_date, margin + 8, y + 20, { width: colW - 16 });
         const isSplitPayment = !!(payment_link_2 && payment_link_2.trim());
         if (isSplitPayment) {
-          doc.fontSize(8).text('50% Deposit', margin + colW + 8, y + 20, { link: payment_link || '#', underline: true, continued: true });
+          doc.fontSize(8).text('Deposit', margin + colW + 8, y + 20, { link: payment_link || '#', underline: true, continued: true });
           doc.text('   /   ', { link: null, underline: false, continued: true });
-          doc.text('50% on Receipt', { link: payment_link_2, underline: true });
+          doc.text('Final Payment', { link: payment_link_2, underline: true });
         } else {
           doc.fontSize(9).text('Click Here', margin + colW + 8, y + 20, { link: payment_link || '#', underline: true });
         }
