@@ -112,11 +112,10 @@ function hasStructuredAddr(props, prefix) {
 // discrete fields per item (Print/Icons, Colorway, Embroidery A, Embroidery
 // B, Custom Woven Labels & Hang Tags -- different items can carry different
 // tags). Sizes stays a separate field/column entirely (unchanged, own
-// "Sizes: " line). Print/Icons is shown exactly as typed, no label added --
-// Matt types whatever he wants there directly. Embroidery A/B hold placement
-// + details together ("(Left Chest): Shield Logo ...") since placement
-// varies per order -- the fixed "Embroidery " label is prepended here, not
-// baked into the field.
+// "Sizes: " line). Print/Icons gets the fixed "Print: " label prepended here.
+// Embroidery A/B hold placement + details together ("(Left Chest): Shield
+// Logo ...") since placement varies per order -- the fixed "Embroidery "
+// label is prepended here, not baked into the field.
 // Item #1's woven-labels field predates the per-item ones and has no "_1"
 // suffix (its internal name can't be changed after the fact); items #2-#6
 // use the normal "_N" suffix.
@@ -140,7 +139,8 @@ function formatStructuredDescription(props, n) {
   const embA = val('description_embroidery_a_' + n);
   const embB = val('description_embroidery_b_' + n);
   const wovenLabels = val(wovenLabelsField(n));
-  if (printicons) lines.push(printicons);
+  // "Print: " is added here; skip it if the field already starts with it.
+  if (printicons) lines.push(/^print\s*:/i.test(printicons) ? printicons : 'Print: ' + printicons);
   if (colorway) lines.push('Colorway: ' + colorway);
   if (embA) lines.push('Embroidery ' + embA);
   if (embB) lines.push('Embroidery ' + embB);

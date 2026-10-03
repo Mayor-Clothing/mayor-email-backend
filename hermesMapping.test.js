@@ -141,4 +141,16 @@ assert.strictEqual(statusToValue('In Transit'), 'Shipped', 'write-back uses the 
 assert.strictEqual(statusToValue('Delivered'), 'Delivered');
 assert.strictEqual(dealToRenderPayload({ properties: { order_status: 'Pending' } }, 'invoice').order_status, 'In Progress');
 
+// Print/Icons (items 1-6) is shown as "Print: <value>"; a field that already
+// starts with "Print:" isn't prefixed twice; other description lines unchanged.
+const qtyProp = ['k_quantity_1', 'l_quantity_2', 'm_quantity_3', 'z_quantity_4', 'z_quantity_5', 'z_quantity_6'];
+for (let n = 1; n <= 6; n++) {
+  const deal = dealToRenderPayload({ properties: { ['description_printicons_' + n]: 'Leaf, Oak Tree', ['description_colorway_' + n]: 'Forest Green', [qtyProp[n - 1]]: '3' } }, 'invoice');
+  assert.strictEqual(deal.line_items[0].description, 'Print: Leaf, Oak Tree\nColorway: Forest Green', 'item ' + n);
+}
+const alreadyPrefixed = dealToRenderPayload({ properties: { description_printicons_1: 'print: Hole names', k_quantity_1: '3' } }, 'invoice');
+assert.strictEqual(alreadyPrefixed.line_items[0].description, 'print: Hole names', 'not doubled');
+const blankPrint = dealToRenderPayload({ properties: { description_colorway_1: 'Sky', k_quantity_1: '3' } }, 'invoice');
+assert.strictEqual(blankPrint.line_items[0].description, 'Colorway: Sky', 'blank Print/Icons adds no line');
+
 console.log('hermesMapping.test.js: all assertions passed');
