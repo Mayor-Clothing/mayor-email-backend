@@ -163,14 +163,17 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const addrLines = addressLines(primaryAddress);
         // Skip the bold name line when the address itself already starts with
         // it (common in real address data) -- avoids printing it twice.
-        const showClub = club && club.trim() && (!addrLines[0] || addrLines[0].trim().toLowerCase() !== club.trim().toLowerCase());
-        const boxH = 24 + (showClub ? 12 : 0) + Math.max(addrLines.length, 1) * 12;
+        // The Customer field can hold several names as "Name A / Name B" -- one
+        // bold line each.
+        const shownClubs = String(club || '').split(' / ').map((s) => s.trim()).filter(Boolean)
+          .filter((c) => !addrLines[0] || addrLines[0].trim().toLowerCase() !== c.toLowerCase());
+        const boxH = 24 + shownClubs.length * 12 + Math.max(addrLines.length, 1) * 12;
         band(hasShipping ? 'CUSTOMER / BILLING' : 'CUSTOMER', y, boxH);
         let ly = y + 22;
-        if (showClub) {
-          doc.fontSize(9).font('Helvetica-Bold').text(club, margin + 8, ly, { width: contentW - 16 });
+        shownClubs.forEach((c) => {
+          doc.fontSize(9).font('Helvetica-Bold').text(c, margin + 8, ly, { width: contentW - 16 });
           ly += 12;
-        }
+        });
         doc.fontSize(9).font('Helvetica');
         addrLines.forEach(line => { doc.text(line, margin + 8, ly, { width: contentW - 16 }); ly += 12; });
         y += boxH + 10;
