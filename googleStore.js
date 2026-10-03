@@ -318,8 +318,11 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       if (payload.order_status && String(row[4] || '') !== payload.order_status) {
         updates.push({ range: `Order Info!E${targetRow}`, values: [[sheetSafe(payload.order_status)]] });
       }
-      if (payload.deal_name && String(row[INFO_DEALNAME_COL] || '') !== payload.deal_name) {
-        updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name)]] });
+      // Syncs TO blank too: the admin order list keys off whether this name
+      // contains "PO #", so emptying/renaming the deal in HubSpot has to clear the
+      // old "PO #..." name here or the order stays in that list forever.
+      if (String(row[INFO_DEALNAME_COL] || '') !== String(payload.deal_name || '')) {
+        updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name || '')]] });
       }
       // Payment Status is its own manual dropdown from HubSpot -- write it
       // whenever it's set and differs (any direction, same as Order Status).
