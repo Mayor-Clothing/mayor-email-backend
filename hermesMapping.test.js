@@ -153,4 +153,17 @@ assert.strictEqual(alreadyPrefixed.line_items[0].description, 'print: Hole names
 const blankPrint = dealToRenderPayload({ properties: { description_colorway_1: 'Sky', k_quantity_1: '3' } }, 'invoice');
 assert.strictEqual(blankPrint.line_items[0].description, 'Colorway: Sky', 'blank Print/Icons adds no line');
 
+// Phone formatting in a structured address: Australian numbers (country code 61)
+// read "61 (02) 9669 1511"; US numbers keep "(724) 495-3300" and are untouched.
+// (With no billing address set, the shipping address collapses into `address`.)
+const phoneLine = (raw) => dealToRenderPayload({ properties: { shipping_address_address_1: '1 Test St', shipping_address_phone_number: raw } }, 'invoice').address.split('\n').pop();
+assert.strictEqual(phoneLine('+610296691511'), '61 (02) 9669 1511', 'The Lakes: country code + trunk 0');
+assert.strictEqual(phoneLine('+61296691511'), '61 (02) 9669 1511', 'no trunk 0');
+assert.strictEqual(phoneLine('+61 2 9669 1511 ext 22'), '61 (02) 9669 1511 x22', 'extension kept');
+assert.strictEqual(phoneLine('+61412345678'), '61 0412 345 678', 'AU mobile');
+assert.strictEqual(phoneLine('+17244953300'), '(724) 495-3300', 'US unchanged');
+assert.strictEqual(phoneLine('+16103334444'), '(610) 333-4444', 'US 610 area code is not Australia');
+assert.strictEqual(phoneLine('6103334444'), '(610) 333-4444', 'US 10 digits starting 61 is not Australia');
+assert.strictEqual(phoneLine('+61123456789'), '+61123456789', 'a 61 number with an unrecognised leading digit passes through');
+
 console.log('hermesMapping.test.js: all assertions passed');

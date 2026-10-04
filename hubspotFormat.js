@@ -67,6 +67,20 @@ function formatPhone(raw) {
   const mainRaw = extMatch ? extMatch[1] : str;
   const ext = extMatch ? extMatch[2] : '';
   let digits = mainRaw.replace(/\D/g, '');
+  // Australia (country code 61): 9 digits after the code, with the national "0"
+  // often kept in ("+610296691511"). Landlines (area 2/3/7/8) read
+  // "61 (02) 9669 1511"; mobiles (4) read "61 0412 345 678". Checked before the
+  // US rule -- a US number is 10 digits (or 11 starting with 1), never 11-12
+  // starting with 61.
+  const au = /^610?(\d{9})$/.exec(digits);
+  if (au) {
+    const n = au[1];
+    let formatted = null;
+    if ('2378'.includes(n[0])) formatted = `61 (0${n[0]}) ${n.slice(1, 5)} ${n.slice(5)}`;
+    else if (n[0] === '4') formatted = `61 0${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
+    if (formatted) return ext ? `${formatted} x${ext}` : formatted;
+    return str;
+  }
   // A real 10-digit US number never starts with 1 (NANP area codes can't), so
   // it's safe to keep stripping a leading "1" -- handles both the normal
   // single country-code prefix and the occasional double-prefixed value
