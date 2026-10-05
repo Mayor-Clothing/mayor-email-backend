@@ -183,6 +183,22 @@ function parseShipDate(raw) {
   return raw.trim();
 }
 
+// HubSpot's "Invoice Date" -> "September 23, 2026" (the date printed in the PDF's
+// top right). Date-type properties arrive as "2026-09-23" or as a UTC-midnight
+// millisecond timestamp; the timestamp is read in UTC so US time zones can't
+// shift it to the day before. Blank in, blank out (the PDF then hides the line).
+function parseInvoiceDate(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s || s === '--') return '';
+  const fmt = (d) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return fmt(new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))));
+  if (/^\d{10,13}$/.test(s)) return fmt(new Date(Number(s) * (s.length === 10 ? 1000 : 1)));
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) return fmt(new Date(Date.UTC(Number(mdy[3]), Number(mdy[1]) - 1, Number(mdy[2]))));
+  return s;
+}
+
 // Description is passed through as typed, with HubSpot's " / " separator turned
 // into line breaks. Nothing is stripped: sizes written inline in the description
 // must survive, because the sheet mirrors HubSpot rather than deriving from it.
@@ -200,4 +216,4 @@ function qtyFromSizes(sizesVal) {
   return matches.reduce((t, m) => t + (parseInt(m.replace(/[^\d]/g, ''), 10) || 0), 0);
 }
 
-module.exports = { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, wovenLabelsField, parseShipDate, cleanDescription, qtyFromSizes, HS_STATES };
+module.exports = { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, wovenLabelsField, parseShipDate, parseInvoiceDate, cleanDescription, qtyFromSizes, HS_STATES };

@@ -83,7 +83,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
     (data.line_items || []).map((item, i) => (i < MAX_IMAGES ? fetchImageBuffer(item.url) : null))
   );
   const {
-    order_number = '', club = '', address = '', shipping_address = '', ship_date = '', in_hand_date = '',
+    order_number = '', club = '', address = '', shipping_address = '', ship_date = '', in_hand_date = '', invoice_date = '',
     date_label = 'Ship By',
     payment_link = '', payment_link_2 = '', w9_link = DEFAULT_W9,
     line_items = [], subtotal = 0, embroidery, art_setup, strike_embroidery = true, strike_art = true,
@@ -129,6 +129,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
          .text(docTitle, margin, margin, { width: contentW, align: 'right', characterSpacing: 1 });
       doc.fontSize(10).font('Helvetica').fillColor('#555')
          .text('Order ' + order_number, margin, margin + 26, { width: contentW, align: 'right' });
+      // Document date from HubSpot's Invoice Date; no value => no line at all.
+      if (invoice_date && String(invoice_date).trim()) {
+        doc.text('Date: ' + String(invoice_date).trim(), margin, margin + 40, { width: contentW, align: 'right' });
+      }
 
       let y = margin + 62;
       doc.moveTo(margin, y).lineTo(pageW - margin, y).lineWidth(1).stroke(INK);

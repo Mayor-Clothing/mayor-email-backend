@@ -166,4 +166,13 @@ assert.strictEqual(phoneLine('+16103334444'), '(610) 333-4444', 'US 610 area cod
 assert.strictEqual(phoneLine('6103334444'), '(610) 333-4444', 'US 10 digits starting 61 is not Australia');
 assert.strictEqual(phoneLine('+61123456789'), '+61123456789', 'a 61 number with an unrecognised leading digit passes through');
 
+// Invoice Date (HubSpot date field) -> "September 23, 2026"; blank stays blank so
+// the PDF hides the line. A UTC-midnight timestamp must not slip to the day before.
+const invDate = (raw) => dealToRenderPayload({ properties: { invoice_date: raw } }, 'invoice').invoice_date;
+assert.strictEqual(invDate('2026-09-23'), 'September 23, 2026');
+assert.strictEqual(invDate(String(Date.UTC(2026, 8, 23))), 'September 23, 2026', 'timestamp read in UTC');
+assert.strictEqual(invDate(''), '');
+assert.strictEqual(invDate(undefined), '');
+assert.ok(INVOICE_PROPERTIES.includes('invoice_date'));
+
 console.log('hermesMapping.test.js: all assertions passed');

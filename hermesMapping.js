@@ -8,7 +8,7 @@
 
 // Real HubSpot property names, per slot (1..5). The letter prefixes are Matt's
 // display-sort convention, not multiple values — one qty + one price per slot.
-const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, wovenLabelsField, parseShipDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
+const { formatAddrHS, formatStructuredAddr, hasStructuredAddr, hasStructuredDescription, formatStructuredDescription, wovenLabelsField, parseShipDate, parseInvoiceDate, cleanDescription, qtyFromSizes } = require('./hubspotFormat');
 
 // The ten discrete fields making up a structured address, per prefix
 // ('shipping_address_' or 'billing_address_'). Matt migrated off the old
@@ -58,6 +58,8 @@ const INVOICE_PROPERTIES = [
   // Positive number typed in HubSpot; always rendered as a deduction, like
   // z_sample_reimbursement.
   'z_commission',
+  // Date printed in the PDF's top right; blank => the PDF hides the line.
+  'invoice_date',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.
@@ -190,6 +192,7 @@ function dealToRenderPayload(deal, docType) {
     address: addressBlock,
     shipping_address: shippingBlock,
     ship_date: parseShipDate(p.ship_date || ''),
+    invoice_date: parseInvoiceDate(p.invoice_date),
     in_hand_date: parseShipDate(p.zf_delivered_date || ''),  // HubSpot "In Hand Date" -> sheet col M
     date_label: 'Ship By',                  // delivery date dropped (blueprint §4.3)
     customer_email: p.customer_email || '',
