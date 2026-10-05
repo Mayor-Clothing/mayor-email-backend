@@ -83,7 +83,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
     (data.line_items || []).map((item, i) => (i < MAX_IMAGES ? fetchImageBuffer(item.url) : null))
   );
   const {
-    order_number = '', club = '', address = '', shipping_address = '', ship_date = '',
+    order_number = '', club = '', address = '', shipping_address = '', ship_date = '', in_hand_date = '',
     date_label = 'Ship By',
     payment_link = '', payment_link_2 = '', w9_link = DEFAULT_W9,
     line_items = [], subtotal = 0, embroidery, art_setup, strike_embroidery = true, strike_art = true,
@@ -147,12 +147,13 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const hasShipping = hasAddress && shipping_address && shipping_address.trim() && shipping_address.trim() !== address.trim();
       const primaryAddress = hasShipping ? address : (address || shipping_address);
 
-      // SHIP TO box (only when it differs from billing), then CUSTOMER/BILLING box —
-      // shipping shown above billing, matching the order page.
+      // SHIPPING ADDRESS box (only when it differs from billing), then BILLING ADDRESS
+      // (or the combined SHIPPING / BILLING ADDRESS) box -- same labels and order as the
+      // order page.
       if (hasShipping) {
         const shipLines = addressLines(shipping_address);
         const boxH = 24 + shipLines.length * 12;
-        band('SHIP TO', y, boxH);
+        band('SHIPPING ADDRESS', y, boxH);
         let ly = y + 22;
         doc.fontSize(9).font('Helvetica');
         shipLines.forEach(line => { doc.text(line, margin + 8, ly, { width: contentW - 16 }); ly += 12; });
@@ -168,7 +169,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const shownClubs = String(club || '').split(' / ').map((s) => s.trim()).filter(Boolean)
           .filter((c) => !addrLines[0] || addrLines[0].trim().toLowerCase() !== c.toLowerCase());
         const boxH = 24 + shownClubs.length * 12 + Math.max(addrLines.length, 1) * 12;
-        band(hasShipping ? 'CUSTOMER / BILLING' : 'CUSTOMER', y, boxH);
+        band(hasShipping ? 'BILLING ADDRESS' : 'SHIPPING / BILLING ADDRESS', y, boxH);
         let ly = y + 22;
         shownClubs.forEach((c) => {
           doc.fontSize(9).font('Helvetica-Bold').text(c, margin + 8, ly, { width: contentW - 16 });
@@ -179,26 +180,36 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         y += boxH + 10;
       }
 
-      // SHIP BY / PAYMENT — compact two-column banded row (only when there's a date)
+      // SHIP BY / IN-HAND / PAYMENT -- compact banded row with one column per value
+      // that exists, same as the order page (which shows each only when it has one).
       const hasDate = ship_date && String(ship_date).trim();
-      if (hasDate) {
-        const colW = contentW / 2;
+      const hasInHand = in_hand_date && String(in_hand_date).trim();
+      const payLinks = [payment_link, payment_link_2].map((l) => String(l || '').trim()).filter(Boolean);
+      const infoCols = [];
+      if (hasDate) infoCols.push({ label: date_label.toUpperCase(), text: String(ship_date) });
+      if (hasInHand) infoCols.push({ label: 'IN-HAND', text: String(in_hand_date) });
+      if (payLinks.length) infoCols.push({ label: 'PAYMENT', pay: true });
+      if (infoCols.length) {
+        const colW = contentW / infoCols.length;
         doc.rect(margin, y, contentW, 16).fill(BAND);
         doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
-        doc.text(date_label.toUpperCase(), margin + 8, y + 4.5);
-        doc.text('PAYMENT', margin + colW + 8, y + 4.5);
+        infoCols.forEach((c, i) => doc.text(c.label, margin + colW * i + 8, y + 4.5));
         doc.rect(margin, y, contentW, 32).lineWidth(0.75).stroke(LINE);
-        doc.moveTo(margin + colW, y).lineTo(margin + colW, y + 32).lineWidth(0.75).stroke(LINE);
-        doc.fillColor(INK).fontSize(9).font('Helvetica');
-        doc.text(ship_date, margin + 8, y + 20, { width: colW - 16 });
-        const isSplitPayment = !!(payment_link_2 && payment_link_2.trim());
-        if (isSplitPayment) {
-          doc.fontSize(8).text('Deposit', margin + colW + 8, y + 20, { link: payment_link || '#', underline: true, continued: true });
-          doc.text('   /   ', { link: null, underline: false, continued: true });
-          doc.text('Final Payment', { link: payment_link_2, underline: true });
-        } else {
-          doc.fontSize(9).text('Click Here', margin + colW + 8, y + 20, { link: payment_link || '#', underline: true });
+        for (let i = 1; i < infoCols.length; i++) {
+          doc.moveTo(margin + colW * i, y).lineTo(margin + colW * i, y + 32).lineWidth(0.75).stroke(LINE);
         }
+        doc.fillColor(INK).fontSize(9).font('Helvetica');
+        infoCols.forEach((c, i) => {
+          const cx = margin + colW * i + 8;
+          if (!c.pay) { doc.fontSize(9).text(c.text, cx, y + 20, { width: colW - 16 }); return; }
+          if (payLinks.length > 1) {
+            doc.fontSize(8).text('Deposit', cx, y + 20, { link: payLinks[0], underline: true, continued: true });
+            doc.text('   /   ', { link: null, underline: false, continued: true });
+            doc.text('Final Payment', { link: payLinks[1], underline: true });
+          } else {
+            doc.fontSize(9).text('Click Here', cx, y + 20, { link: payLinks[0], underline: true });
+          }
+        });
         y += 32 + 10;
       }
 
@@ -223,7 +234,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         const descText = [((item.description || '').replace(/\\n/g, '\n').replace(/ \/ /g, '\n')), sizesText ? 'Sizes: ' + sizesText : ''].filter(Boolean).join('\n');
         const imgBuf = imageBuffers[i] || null;
         const imgSize = 52;
-        const descH = doc.fontSize(8.5).heightOfString(descText, { width: dW - 8, lineGap: 1.5 });
+        // Same "Additional Details" link the order page shows under the description.
+        const productLink = item.product_page || (i === 0 ? data.product_page : '') || '';
+        const descH = doc.fontSize(8.5).heightOfString(descText, { width: dW - 8, lineGap: 1.5 }) + (productLink ? 12 : 0);
+        const itemAmount = Number(item.amount) || (Number(item.quantity) * Number(item.price)) || 0;
         const hasDualPrice = item.orig_price && Number(item.orig_price) > 0;
         const prodH = doc.fontSize(8.5).heightOfString(item.product || '', { width: pW - 10 });
         const rowH = Math.max(imgBuf ? imgSize + 10 : 0, descH + 14, prodH + 14, hasDualPrice ? 40 : 26);
@@ -234,7 +248,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         doc.fontSize(8.5).font('Helvetica').fillColor(INK);
         if (imgBuf) {
           try {
-            doc.image(imgBuf, cP + 5, y + 4, { fit: [pW - 10, rowH - 8], align: 'center', valign: 'center', link: item.product_page || (i === 0 ? data.product_page : '') || '' });
+            doc.image(imgBuf, cP + 5, y + 4, { fit: [pW - 10, rowH - 8], align: 'center', valign: 'center', link: productLink });
           } catch (e) {
             doc.text(item.product || '', cP + 6, y + 7, { width: pW - 10, underline: false });
           }
@@ -242,6 +256,11 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           doc.text(item.product || '', cP + 6, y + 7, { width: pW - 10, underline: false });
         }
         doc.text(descText, cD + 3, y + 7, { width: dW - 6, lineGap: 1.5 });
+        if (productLink) {
+          const linkY = y + 7 + (descText ? doc.heightOfString(descText, { width: dW - 6, lineGap: 1.5 }) + 2 : 0);
+          doc.fontSize(8).fillColor(INK).text('Additional Details', cD + 3, linkY, { width: dW - 6, link: productLink, underline: true });
+          doc.fontSize(8.5);
+        }
         doc.text(String(item.quantity || ''), cQ, y + 7, { width: qW, align: 'right' });
 
         if (item.orig_price && Number(item.orig_price) > 0) {
@@ -259,7 +278,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
 
         if (item.orig_price && Number(item.orig_price) > 0) {
           const origAmt = fmtMoney(Number(item.orig_price) * Number(item.quantity));
-          const actAmt = fmtMoney(item.amount);
+          const actAmt = fmtMoney(itemAmount);
           doc.text(origAmt, cA, y + 5, { width: aW - 6, align: 'right' });
           const origAmtW = doc.widthOfString(origAmt);
           const origAmtX = cA + aW - 6 - origAmtW;
@@ -267,7 +286,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           doc.moveTo(origAmtX, midY).lineTo(origAmtX + origAmtW, midY).lineWidth(0.8).stroke(INK);
           doc.text(actAmt, cA, y + 18, { width: aW - 6, align: 'right' });
         } else {
-          const amtText = item.amount ? fmtMoney(item.amount) : (Number(item.price) === 0 ? fmtMoney(0) : '');
+          const amtText = itemAmount ? fmtMoney(itemAmount) : (Number(item.price) === 0 ? fmtMoney(0) : '');
           doc.text(amtText, cA, y + 7, { width: aW - 6, align: 'right' });
           if (Number(item.price) === 0 && amtText) {
             const tw = doc.widthOfString(amtText);
@@ -331,7 +350,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
 
       const totRows = [];
       totRows.push(['Subtotal (' + qtyTotal + ')', fmtMoney(effectiveSubtotal), false, false]);
-      if (embroidery) totRows.push(['Embroidery', fmtMoney(embroidery), strike_embroidery, false]);
+      if (num(embroidery) > 0) totRows.push(['Embroidery', fmtMoney(num(embroidery)), strike_embroidery, false]);
       if (art_setup != null && art_setup !== 0 && art_setup !== '') {
         const artNum = parseFloat(String(art_setup).replace(/[$,\s]/g, ''));
         if (!isNaN(artNum) && artNum !== 0) {
@@ -339,10 +358,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         }
       }
       if (rush_fee && num(rush_fee) !== 0) totRows.push(['Expedited Order', fmtMoney(rush_fee), false, false]);
-      if (num(sample_reimbursement) !== 0) totRows.push(['Sample Reimbursement', sample_reimbursement, false, false]);
-      if (custom_label) totRows.push(['Custom Woven Labels & Hang Tags', fmtMoney(custom_label), false, false]);
-      if (num(commission) !== 0) totRows.push(['Commission', commission, false, false]);
-      if (shipping) totRows.push(['Shipping', fmtMoney(shipping), strike_shipping, false]);
+      if (num(sample_reimbursement) > 0) totRows.push(['Sample Reimbursement', `(${fmtMoney(num(sample_reimbursement))})`, false, false]);
+      if (num(custom_label) > 0) totRows.push(['Custom Woven Labels & Hang Tags', fmtMoney(num(custom_label)), false, false]);
+      if (num(commission) > 0) totRows.push(['Commission', `(${fmtMoney(num(commission))})`, false, false]);
+      if (num(shipping) !== 0) totRows.push(['Shipping', fmtMoney(num(shipping)), strike_shipping, false]);
       totRows.push(['Total', fmtMoney(effectiveTotal), false, true]);
 
       const rowH2 = 17;
