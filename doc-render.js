@@ -273,7 +273,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           doc.moveTo(origX, midY).lineTo(origX + origW, midY).lineWidth(0.8).stroke(INK);
           doc.text(actText, cPr, y + 18, { width: prW, align: 'right' });
         } else {
-          doc.text(item.price ? fmtMoney(item.price) : '', cPr, y + 7, { width: prW, align: 'right' });
+          doc.text(fmtMoney(item.price), cPr, y + 7, { width: prW, align: 'right' });
         }
 
         if (item.orig_price && Number(item.orig_price) > 0) {
@@ -286,21 +286,8 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
           doc.moveTo(origAmtX, midY).lineTo(origAmtX + origAmtW, midY).lineWidth(0.8).stroke(INK);
           doc.text(actAmt, cA, y + 18, { width: aW - 6, align: 'right' });
         } else {
-          const amtText = itemAmount ? fmtMoney(itemAmount) : (Number(item.price) === 0 ? fmtMoney(0) : '');
-          doc.text(amtText, cA, y + 7, { width: aW - 6, align: 'right' });
-          if (Number(item.price) === 0 && amtText) {
-            const tw = doc.widthOfString(amtText);
-            const tx = cA + aW - 6 - tw;
-            const zMid = y + 7 + 8.5 * 0.35;
-            doc.moveTo(tx, zMid).lineTo(tx + tw, zMid).lineWidth(0.8).stroke(INK);
-          }
-          if (Number(item.price) === 0) {
-            const prText = fmtMoney(0);
-            const ptw = doc.widthOfString(prText);
-            const ptx = cPr + prW - ptw;
-            const zMid = y + 7 + 8.5 * 0.35;
-            doc.moveTo(ptx, zMid).lineTo(ptx + ptw, zMid).lineWidth(0.8).stroke(INK);
-          }
+          // Plain amount, $0 included -- same as the order page (no strike-through).
+          doc.text(fmtMoney(itemAmount), cA, y + 7, { width: aW - 6, align: 'right' });
         }
         y += rowH;
       });
