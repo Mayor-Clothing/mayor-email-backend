@@ -132,9 +132,10 @@ function effectiveSubtotalAndTotal(p) {
   const customForTotal = num(p.custom_label);
   const rushForTotal = num(p.rush_fee);
   const commissionForTotal = num(p.commission);
+  const taxForTotal = Math.max(num(p.sales_tax), 0);
   const total = p.total && Number(p.total) > 0
     ? Number(p.total)
-    : subtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal - commissionForTotal;
+    : subtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal + taxForTotal - reimbForTotal - commissionForTotal;
   return { subtotal, total };
 }
 
@@ -177,6 +178,7 @@ function buildDetailRow(p, driveLink) {
     orig_price_1: get(0, 'orig_price') || '', orig_price_2: get(1, 'orig_price') || '', orig_price_3: get(2, 'orig_price') || '', orig_price_4: get(3, 'orig_price') || '', orig_price_5: get(4, 'orig_price') || '', orig_price_6: get(5, 'orig_price') || '',
     drive_pdf_link: driveLink || '',
     rush_fee: p.rush_fee || '',
+    sales_tax: p.sales_tax || '',
     p1_product_page: get(0, 'product_page'), p2_product_page: get(1, 'product_page'), p3_product_page: get(2, 'product_page'), p4_product_page: get(3, 'product_page'), p5_product_page: get(4, 'product_page'), p6_product_page: get(5, 'product_page'),
     p1_mockup: get(0, 'mockup'), p2_mockup: get(1, 'mockup'), p3_mockup: get(2, 'mockup'), p4_mockup: get(3, 'mockup'), p5_mockup: get(4, 'mockup'), p6_mockup: get(5, 'mockup'),
   });
@@ -211,6 +213,34 @@ async function upsertUserEmail(sheets, email, club) {
   }
 }
 
+// The detail tabs must be at least as wide as the row we write, or Sheets rejects
+// the write ("exceeds grid limits") and the order doesn't save. When a new column
+// is added to the layout the live tab can be one short, so widen it first -- this
+// only appends blank columns on the right (with a little spare); nothing existing
+// moves. Checked once per tab per process; a failure here is logged, not fatal.
+const _gridWidthChecked = new Set();
+async function ensureGridWidth(sheets, tab, needed) {
+  if (_gridWidthChecked.has(tab)) return;
+  try {
+    const meta = await withRetry('read sheet grid size', () => sheets.spreadsheets.get({
+      spreadsheetId: SHEET_ID, fields: 'sheets.properties(sheetId,title,gridProperties.columnCount)',
+    }));
+    const props = ((meta.data && meta.data.sheets) || []).map((s) => s.properties).find((pr) => pr && pr.title === tab);
+    if (!props) return;
+    const have = (props.gridProperties && props.gridProperties.columnCount) || 0;
+    if (have < needed) {
+      await withRetry(`widen ${tab}`, () => sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        resource: { requests: [{ appendDimension: { sheetId: props.sheetId, dimension: 'COLUMNS', length: needed - have + 10 } }] },
+      }));
+      console.log(`widened ${tab} from ${have} to ${needed + 10} columns`);
+    }
+    _gridWidthChecked.add(tab);
+  } catch (e) {
+    console.error('ensureGridWidth failed for', tab, e.message);
+  }
+}
+
 // Upsert a full row, keyed on deal_id (fallback order_number). Returns 1-based row.
 // prefetchedRows: the tab's A:H values already in hand (persistOrder batch-reads
 // Order Info and the detail tab together), so this doesn't spend a second read.
@@ -225,6 +255,7 @@ async function writeRow(sheets, tab, { dealId, orderNumber }, rowData, prefetche
   }
   const idx = matchRowIndex(rows, dealIdx, orderIdx, dealId, orderNumber);
   const targetRow = idx > 0 ? idx + 1 : firstEmptyRow(rows, orderIdx);
+  if (!isInfo) await ensureGridWidth(sheets, tab, rowData.length);
   await withRetry(`write ${tab}!A${targetRow}`, () => sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
     range: `${tab}!A${targetRow}`,

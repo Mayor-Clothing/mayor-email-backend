@@ -3,9 +3,9 @@
 const assert = require('assert');
 const { COLUMNS, COL, buildRow, INFO_DEAL_COL, matchRowIndex, firstEmptyRow } = require('./mo-sheet');
 
-// 78 columns in HubSpot deal-card order. deal_id at A(0) + order_number at F(5)
+// 79 columns in HubSpot deal-card order. deal_id at A(0) + order_number at F(5)
 // preserved so the upsert keying still works; per-item blocks + totals follow.
-assert.strictEqual(COLUMNS.length, 78, 'layout must be 78 columns');
+assert.strictEqual(COLUMNS.length, 79, 'layout must be 79 columns');
 
 // Spot-pin positions across the new order (bookkeeping front, per-item blocks,
 // totals, legacy product_page + drive_pdf_link trailing).
@@ -26,7 +26,7 @@ assert.strictEqual(INFO_DEAL_COL, 7, 'Order Info deal_id column is H(7)');
 
 // buildRow places values by name and blanks the rest.
 const row = buildRow({ deal_id: 'D1', order_number: 'Ord', total: 99, strike_embroidery: '1' });
-assert.strictEqual(row.length, 78);
+assert.strictEqual(row.length, 79);
 assert.strictEqual(row[0], 'D1');
 assert.strictEqual(row[5], 'Ord');
 assert.strictEqual(row[63], 99);

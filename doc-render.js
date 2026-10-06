@@ -89,7 +89,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
     line_items = [], subtotal = 0, embroidery, art_setup, strike_embroidery = true, strike_art = true,
     shipping = 0, strike_shipping = false, sample_reimbursement = null,
     custom_label = null, rush_fee = null, payment_terms = '', total = 0,
-    commission = null
+    commission = null, sales_tax = null
   } = data;
 
   return await new Promise((resolve, reject) => {
@@ -334,9 +334,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const customForTotal = num(custom_label);
       const rushForTotal = num(rush_fee);
       const commissionForTotal = num(commission);
+      const taxForTotal = Math.max(num(sales_tax), 0);
       const effectiveTotal = total && Number(total) > 0
         ? Number(total)
-        : effectiveSubtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal - reimbForTotal - commissionForTotal;
+        : effectiveSubtotal + shipForTotal + customForTotal + rushForTotal + embForTotal + artForTotal + taxForTotal - reimbForTotal - commissionForTotal;
       const qtyTotal = line_items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
       const totRows = [];
@@ -353,6 +354,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       if (num(custom_label) > 0) totRows.push(['Custom Woven Labels & Hang Tags', fmtMoney(num(custom_label)), false, false]);
       if (num(commission) > 0) totRows.push(['Commission', `(${fmtMoney(num(commission))})`, false, false]);
       if (num(shipping) !== 0) totRows.push(['Shipping', fmtMoney(num(shipping)), strike_shipping, false]);
+      if (taxForTotal > 0) totRows.push(['Sales Tax', fmtMoney(taxForTotal), false, false]);
       totRows.push(['Total', fmtMoney(effectiveTotal), false, true]);
 
       const rowH2 = 17;

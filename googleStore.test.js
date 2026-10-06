@@ -63,7 +63,7 @@ assert.strictEqual(row[COL.strike_shipping], '1');
 assert.strictEqual(row[COL.drive_pdf_link], 'https://drive.google.com/file/d/abc/view');
 assert.strictEqual(row[COL.p1_product_page], 'https://x/details1');
 assert.strictEqual(row[COL.p1_mockup], 'https://img/mock1.png');
-assert.strictEqual(row.length, 78);
+assert.strictEqual(row.length, 79);
 
 // hermesMapping.js deliberately sends subtotal:0/total:0 ("force doc-render to
 // recompute from line items") -- buildDetailRow must fall back to the same
@@ -72,6 +72,12 @@ const zeroedPayload = { ...payload, subtotal: 0, total: 0 };
 const zeroedRow = buildDetailRow(zeroedPayload, 'https://drive.google.com/file/d/abc/view');
 assert.strictEqual(zeroedRow[COL.subtotal], 2016, 'subtotal falls back to sum of line items');
 assert.strictEqual(zeroedRow[COL.total], 1936, 'total falls back to subtotal + shipping/custom/emb/art - reimbursement (struck fees excluded)');
+
+// Sales Tax is a charge: stored in its own column and added into the total.
+const taxRow = buildDetailRow({ ...zeroedPayload, sales_tax: 100 }, '');
+assert.strictEqual(taxRow[COL.sales_tax], 100);
+assert.strictEqual(taxRow[COL.total], 1936 + 100, 'sales tax is added to the computed total');
+assert.strictEqual(zeroedRow[COL.sales_tax], '', 'no tax => blank cell');
 
 // F10 upsert keying: prefer stable deal_id so a HubSpot rename updates in place.
 // OC/Invoices layout: deal_id col A(0), order_number col F(5).

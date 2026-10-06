@@ -60,6 +60,8 @@ const INVOICE_PROPERTIES = [
   'z_commission',
   // Date printed in the PDF's top right; blank => the PDF hides the line.
   'invoice_date',
+  // Sales tax: a positive number typed in HubSpot, added to the total.
+  'sales_tax',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.
@@ -139,6 +141,7 @@ function dealToRenderPayload(deal, docType) {
   const rush = n(p.rush_fee);
   const sampleReimb = n(p.z_sample_reimbursement);
   const commission = n(p.z_commission);
+  const salesTax = n(p.sales_tax);
 
   // Address blocks + ship date — mirror mayor-tools' formatting rules exactly.
   // Matt migrated to ten discrete fields per side (shipping_address_* /
@@ -216,6 +219,7 @@ function dealToRenderPayload(deal, docType) {
     rush_fee: rush > 0 ? rush : null,
     // Works whether Matt types it as "152" or "-152" -- either way it's a deduction.
     commission: commission !== 0 ? `(${Math.abs(commission).toFixed(2)})` : null,
+    sales_tax: salesTax > 0 ? salesTax : null,
   };
 }
 

@@ -175,4 +175,13 @@ assert.strictEqual(invDate(''), '');
 assert.strictEqual(invDate(undefined), '');
 assert.ok(INVOICE_PROPERTIES.includes('invoice_date'));
 
+// Sales Tax (HubSpot number field) -> positive charge; blank/zero => null so the
+// PDF and order page hide the row.
+const taxOf = (v) => dealToRenderPayload({ properties: { sales_tax: v } }, 'invoice').sales_tax;
+assert.strictEqual(taxOf('123.45'), 123.45);
+assert.strictEqual(taxOf(''), null);
+assert.strictEqual(taxOf('0'), null);
+assert.strictEqual(taxOf(undefined), null);
+assert.ok(INVOICE_PROPERTIES.includes('sales_tax'));
+
 console.log('hermesMapping.test.js: all assertions passed');

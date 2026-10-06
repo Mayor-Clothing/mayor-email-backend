@@ -34,6 +34,10 @@ const COLUMNS = [
   // Product #6 (F/U 2026-09): a 6th line-item slot. Appended at the far right
   // rather than next to the p1-p5 block, per the column-position warning above.
   'p6_url', 'p6_mockup', 'p6_product_page', 'p6_desc', 'p6_sizes', 'p6_qty', 'orig_price_6', 'p6_price',
+  // Sales Tax (F/U 2026-10): a charge added to the total, shown just above Total.
+  // Appended at the far right per the column-position warning above. This is
+  // column 79 (CA) -- one past the old BZ read limit.
+  'sales_tax',
 ];
 
 // name -> 0-based column index (for the reader).
