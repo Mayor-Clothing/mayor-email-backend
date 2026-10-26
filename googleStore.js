@@ -356,9 +356,11 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
         updates.push({ range: `Order Info!I${targetRow}`, values: [[sheetSafe(payload.deal_name || '')]] });
       }
       // Payment Status is its own manual dropdown from HubSpot -- write it
-      // whenever it's set and differs (any direction, same as Order Status).
-      if (payload.payment_status && String(row[INFO_PAYMENTSTATUS_COL] || '') !== payload.payment_status) {
-        updates.push({ range: `Order Info!J${targetRow}`, values: [[sheetSafe(payload.payment_status)]] });
+      // whenever it differs (any direction, same as Order Status). Unlike Order
+      // Status it syncs TO blank too: clearing the dropdown must clear it on the
+      // sheet, or the customer's order page keeps showing the old badge.
+      if (String(row[INFO_PAYMENTSTATUS_COL] || '') !== String(payload.payment_status || '')) {
+        updates.push({ range: `Order Info!J${targetRow}`, values: [[sheetSafe(payload.payment_status || '')]] });
       }
       // Keep the email column in sync with HubSpot -- previously only set when the
       // row was first created, so adding a second email to an existing deal (or
