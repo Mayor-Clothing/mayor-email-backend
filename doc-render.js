@@ -143,7 +143,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       // Document date from HubSpot's Invoice Date; no value => no line at all.
       if (invoice_date && String(invoice_date).trim()) {
         doc.fontSize(10).font('Helvetica').fillColor('#555')
-           .text('Date: ' + String(invoice_date).trim(), margin, margin + 40, { width: contentW, align: 'right' });
+           .text(String(invoice_date).trim(), margin, margin + 40, { width: contentW, align: 'right' });
       }
 
       let y = margin + 84;
