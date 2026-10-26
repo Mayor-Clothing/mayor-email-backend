@@ -32,7 +32,9 @@ function sheetSafe(v) {
   // accounting notation for a negative value -- "(207.00)" silently becomes
   // the number -207 instead of staying the literal credit string we wrote
   // (sample_reimbursement, commission). Force it to stay text.
-  return /^[=+\-@\t\r]|^0\d|^\(\$?[\d,]+\.?\d*\)$/.test(v) ? `'${v}` : v;
+  // A bare month-name date ("October 26, 2026", the Invoice Date) would also be
+  // converted to a real date; keep it as the text we wrote.
+  return /^[=+\-@\t\r]|^0\d|^\(\$?[\d,]+\.?\d*\)$|^[A-Za-z]+ \d{1,2}, \d{4}$/.test(v) ? `'${v}` : v;
 }
 
 function credsPresent() {
@@ -179,6 +181,7 @@ function buildDetailRow(p, driveLink) {
     drive_pdf_link: driveLink || '',
     rush_fee: p.rush_fee || '',
     sales_tax: p.sales_tax || '',
+    invoice_date: p.invoice_date || '',
     p1_product_page: get(0, 'product_page'), p2_product_page: get(1, 'product_page'), p3_product_page: get(2, 'product_page'), p4_product_page: get(3, 'product_page'), p5_product_page: get(4, 'product_page'), p6_product_page: get(5, 'product_page'),
     p1_mockup: get(0, 'mockup'), p2_mockup: get(1, 'mockup'), p3_mockup: get(2, 'mockup'), p4_mockup: get(3, 'mockup'), p5_mockup: get(4, 'mockup'), p6_mockup: get(5, 'mockup'),
   });

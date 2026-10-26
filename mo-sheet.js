@@ -38,6 +38,10 @@ const COLUMNS = [
   // Appended at the far right per the column-position warning above. This is
   // column 79 (CA) -- one past the old BZ read limit.
   'sales_tax',
+  // Invoice Date (F/U 2026-10): printed in the PDF's top right. Must live on the
+  // sheet too, because the customer's PDF download is rebuilt from the sheet.
+  // Column 80 (CB).
+  'invoice_date',
 ];
 
 // name -> 0-based column index (for the reader).

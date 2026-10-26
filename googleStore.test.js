@@ -63,7 +63,7 @@ assert.strictEqual(row[COL.strike_shipping], '1');
 assert.strictEqual(row[COL.drive_pdf_link], 'https://drive.google.com/file/d/abc/view');
 assert.strictEqual(row[COL.p1_product_page], 'https://x/details1');
 assert.strictEqual(row[COL.p1_mockup], 'https://img/mock1.png');
-assert.strictEqual(row.length, 79);
+assert.strictEqual(row.length, 80);
 
 // hermesMapping.js deliberately sends subtotal:0/total:0 ("force doc-render to
 // recompute from line items") -- buildDetailRow must fall back to the same
@@ -78,6 +78,11 @@ const taxRow = buildDetailRow({ ...zeroedPayload, sales_tax: 100 }, '');
 assert.strictEqual(taxRow[COL.sales_tax], 100);
 assert.strictEqual(taxRow[COL.total], 1936 + 100, 'sales tax is added to the computed total');
 assert.strictEqual(zeroedRow[COL.sales_tax], '', 'no tax => blank cell');
+
+// Invoice Date is stored on the sheet (the customer's PDF download is rebuilt from it).
+const dateRow = buildDetailRow({ ...payload, invoice_date: 'October 26, 2026' }, '');
+assert.strictEqual(dateRow[COL.invoice_date], 'October 26, 2026');
+assert.strictEqual(row[COL.invoice_date], '', 'no invoice date => blank cell');
 
 // F10 upsert keying: prefer stable deal_id so a HubSpot rename updates in place.
 // OC/Invoices layout: deal_id col A(0), order_number col F(5).
