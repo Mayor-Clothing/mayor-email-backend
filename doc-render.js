@@ -73,8 +73,7 @@ async function fetchImageBuffer(url) {
   return null;
 }
 
-// data = the /generate payload. logoPath is accepted for backward compatibility
-// with callers, but is no longer used -- the logo was removed from the PDF.
+// data = the /generate payload. logoPath is the Mayor script logo drawn top left.
 async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
   // Pre-fetch product images as buffers (bounded — 5 slots). Mockups are
   // deliberately NOT rendered here: they live on the order page only, so the
@@ -114,11 +113,20 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
 
       // ── HEADER: Mayor block (left) + document title (right) ──
       let hy = margin;
-      doc.fontSize(15).font('Helvetica-Bold').fillColor(INK)
-         .text('MAYOR', margin, hy, { characterSpacing: 1 });
-      hy += 19;
+      // Mayor script logo (black on transparent). The PNG has some empty space on
+      // its left, so it's nudged left to line the lettering up with the address
+      // below. Falls back to the plain word if the file can't be read.
+      try {
+        doc.image(logoPath, margin - 11, margin - 8, { fit: [104, 36] });
+      } catch (e) {
+        doc.fontSize(15).font('Helvetica-Bold').fillColor(INK)
+           .text('MAYOR', margin, hy, { characterSpacing: 1 });
+      }
+      hy += 31;
       doc.fontSize(8).font('Helvetica').fillColor('#555')
-         .text('870 Inman Village Parkway NE, Suite 533', margin, hy);
+         .text('870 Inman Village Parkway NE', margin, hy);
+      hy += 11;
+      doc.text('Suite 533', margin, hy);
       hy += 11;
       doc.text('Atlanta, GA 30307', margin, hy);
       hy += 11;
@@ -127,14 +135,18 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const docTitle = data.type === 'confirmation' ? 'ORDER CONFIRMATION' : 'INVOICE';
       doc.fontSize(20).font('Helvetica-Bold').fillColor(INK)
          .text(docTitle, margin, margin, { width: contentW, align: 'right', characterSpacing: 1 });
-      doc.fontSize(10).font('Helvetica').fillColor('#555')
-         .text('Order ' + order_number, margin, margin + 26, { width: contentW, align: 'right' });
+      // "# <order>" -- hidden entirely when there is no order name/number.
+      if (String(order_number || '').trim()) {
+        doc.fontSize(10).font('Helvetica').fillColor('#555')
+           .text('# ' + String(order_number).trim(), margin, margin + 26, { width: contentW, align: 'right' });
+      }
       // Document date from HubSpot's Invoice Date; no value => no line at all.
       if (invoice_date && String(invoice_date).trim()) {
-        doc.text('Date: ' + String(invoice_date).trim(), margin, margin + 40, { width: contentW, align: 'right' });
+        doc.fontSize(10).font('Helvetica').fillColor('#555')
+           .text('Date: ' + String(invoice_date).trim(), margin, margin + 40, { width: contentW, align: 'right' });
       }
 
-      let y = margin + 62;
+      let y = margin + 84;
       doc.moveTo(margin, y).lineTo(pageW - margin, y).lineWidth(1).stroke(INK);
       y += 14;
 
