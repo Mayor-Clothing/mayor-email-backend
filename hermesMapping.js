@@ -117,7 +117,12 @@ function dealToRenderPayload(deal, docType) {
   }
 
   // Payment links: one field, one or two links separated by " / " => 50/50 labeling.
-  const links = String(p.y_payment_link || '').split(' / ').map((s) => s.trim()).filter(Boolean);
+  // The field may hold plain text instead of a link ("Paid by check #1042") and the
+  // order page / PDF show it as typed -- so only split on " / " when every piece is
+  // a link; otherwise the whole value stays one piece (text can contain " / ").
+  const payRaw = String(p.y_payment_link || '').trim();
+  const payParts = payRaw.split(' / ').map((s) => s.trim()).filter(Boolean);
+  const links = payParts.length > 1 && payParts.every((s) => /^https?:\/\//i.test(s)) ? payParts : (payRaw ? [payRaw] : []);
 
   // Strike/waive logic — driven by explicit yes/no HubSpot checkboxes
   // (Strike Embroidery / Strike Art / Strike Shipping) so Matt controls which

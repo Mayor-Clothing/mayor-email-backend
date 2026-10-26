@@ -184,4 +184,13 @@ assert.strictEqual(taxOf('0'), null);
 assert.strictEqual(taxOf(undefined), null);
 assert.ok(INVOICE_PROPERTIES.includes('sales_tax'));
 
+// The payment-link field may hold plain text; it must reach the payload untouched.
+// A " / " only splits (Deposit / Final Payment) when every piece is a link.
+const payOf = (v) => { const r = dealToRenderPayload({ properties: { y_payment_link: v } }, 'invoice'); return [r.payment_link, r.payment_link_2]; };
+assert.deepStrictEqual(payOf('Paid by check #1042'), ['Paid by check #1042', '']);
+assert.deepStrictEqual(payOf('Wire / see email'), ['Wire / see email', ''], 'text containing " / " is not split');
+assert.deepStrictEqual(payOf('https://nickel.com/a / https://nickel.com/b'), ['https://nickel.com/a', 'https://nickel.com/b']);
+assert.deepStrictEqual(payOf('https://nickel.com/a'), ['https://nickel.com/a', '']);
+assert.deepStrictEqual(payOf(''), ['', '']);
+
 console.log('hermesMapping.test.js: all assertions passed');

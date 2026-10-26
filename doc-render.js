@@ -188,33 +188,50 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       // that exists, same as the order page (which shows each only when it has one).
       const hasDate = ship_date && String(ship_date).trim();
       const hasInHand = in_hand_date && String(in_hand_date).trim();
-      const payLinks = [payment_link, payment_link_2].map((l) => String(l || '').trim()).filter(Boolean);
+      // The payment field can hold plain text instead of a link ("Paid by check
+      // #1042"): an https link prints as a clickable "Click Here"; anything else
+      // prints exactly as typed.
+      const payVals = [payment_link, payment_link_2].map((l) => String(l || '').trim()).filter(Boolean);
+      const isUrl = (v) => /^https:\/\//i.test(v);
+      const payPieces = payVals.length > 1
+        ? payVals.map((v, i) => ({ v, label: i === 0 ? 'Deposit' : 'Final Payment' }))
+        : payVals.map((v) => ({ v, label: '' }));
+      const pieceText = (pc) => (isUrl(pc.v) ? (pc.label || 'Click Here') : (pc.label ? pc.label + ': ' : '') + pc.v);
       const infoCols = [];
       if (hasDate) infoCols.push({ label: date_label.toUpperCase(), text: String(ship_date) });
       if (hasInHand) infoCols.push({ label: 'IN-HAND', text: String(in_hand_date) });
-      if (payLinks.length) infoCols.push({ label: 'PAYMENT', pay: true });
+      if (payVals.length) infoCols.push({ label: 'PAYMENT', pay: true });
       if (infoCols.length) {
         const colW = contentW / infoCols.length;
+        const paySize = payPieces.length > 1 ? 8 : 9;
+        // Row grows when a long payment note wraps onto more lines.
+        const cellH = (c) => (c.pay
+          ? doc.fontSize(paySize).heightOfString(payPieces.map(pieceText).join('   /   '), { width: colW - 16 })
+          : doc.fontSize(9).heightOfString(c.text, { width: colW - 16 }));
+        const boxH = Math.max(32, 20 + Math.max(...infoCols.map(cellH)) + 6);
         doc.rect(margin, y, contentW, 16).fill(BAND);
         doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
         infoCols.forEach((c, i) => doc.text(c.label, margin + colW * i + 8, y + 4.5));
-        doc.rect(margin, y, contentW, 32).lineWidth(0.75).stroke(LINE);
+        doc.rect(margin, y, contentW, boxH).lineWidth(0.75).stroke(LINE);
         for (let i = 1; i < infoCols.length; i++) {
-          doc.moveTo(margin + colW * i, y).lineTo(margin + colW * i, y + 32).lineWidth(0.75).stroke(LINE);
+          doc.moveTo(margin + colW * i, y).lineTo(margin + colW * i, y + boxH).lineWidth(0.75).stroke(LINE);
         }
         doc.fillColor(INK).fontSize(9).font('Helvetica');
         infoCols.forEach((c, i) => {
           const cx = margin + colW * i + 8;
           if (!c.pay) { doc.fontSize(9).text(c.text, cx, y + 20, { width: colW - 16 }); return; }
-          if (payLinks.length > 1) {
-            doc.fontSize(8).text('Deposit', cx, y + 20, { link: payLinks[0], underline: true, continued: true });
-            doc.text('   /   ', { link: null, underline: false, continued: true });
-            doc.text('Final Payment', { link: payLinks[1], underline: true });
-          } else {
-            doc.fontSize(9).text('Click Here', cx, y + 20, { link: payLinks[0], underline: true });
-          }
+          doc.fontSize(paySize);
+          payPieces.forEach((pc, k) => {
+            const last = k === payPieces.length - 1;
+            const opts = isUrl(pc.v) ? { link: pc.v, underline: true } : { link: null, underline: false };
+            if (k === 0) doc.text(pieceText(pc), cx, y + 20, { ...opts, width: colW - 16, continued: !last });
+            else {
+              doc.text('   /   ', { link: null, underline: false, continued: true });
+              doc.text(pieceText(pc), { ...opts, continued: !last });
+            }
+          });
         });
-        y += 32 + 10;
+        y += boxH + 10;
       }
 
       // ── LINE ITEMS TABLE (full width) ──
