@@ -406,12 +406,6 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         ty += rowH2;
       });
 
-      // ── FOOTER ──
-      doc.moveTo(margin, pageH - 38).lineTo(pageW - margin, pageH - 38).lineWidth(0.75).stroke();
-      doc.fontSize(7).font('Helvetica-Bold').fillColor(INK)
-         .text('Mayor | 870 Inman Village Parkway NE, Suite 533, Atlanta, GA 30307 | 339-206-2111 | mayor@mayorclothing.com',
-               margin, pageH - 27, { align: 'center', width: contentW, characterSpacing: 0.5 });
-
       doc.end();
     } catch (e) {
       reject(e);
