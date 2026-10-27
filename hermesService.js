@@ -1,11 +1,11 @@
 // Hermes core: generate a document from a HubSpot deal, and the status
 // transitions. Shared by the HTTP route, the webhook fast-path, and the poll.
 
-const { getInvoiceDeal, searchDeals, clearDealTrigger } = require('./hubspot');
+const { getInvoiceDeal, searchDeals, clearDealTrigger, setDealTotals } = require('./hubspot');
 const { alertError } = require('./alerts');
 const { dealToRenderPayload, INVOICE_PROPERTIES } = require('./hermesMapping');
 const { renderInvoicePdf } = require('./doc-render');
-const { persistOrder, setOrderStatus, dealDocPresence, fetchDocPresenceIndex } = require('./googleStore');
+const { persistOrder, setOrderStatus, dealDocPresence, fetchDocPresenceIndex, effectiveSubtotalAndTotal } = require('./googleStore');
 
 // Trigger property names (blueprint §4.3). Created manually in HubSpot; until
 // then triggers simply never fire and the poll's searches no-op.
@@ -24,6 +24,31 @@ const TRIGGER = {
 // (needs deals-write scope on the private app).
 const DEDUP_TTL_MS = 2 * 60 * 1000;
 const seenAt = new Map(); // key -> last-generated epoch ms
+
+// Show the order's Subtotal Quantity / Subtotal Price / Total on the HubSpot deal
+// (the same numbers as the PDF and the sheet). Only writes values that differ from
+// what the deal already holds: a write bumps hs_lastmodifieddate, which the Refresh
+// button reads as "edited", so writing unchanged numbers would re-loop it forever.
+// Best-effort -- a failure here must never fail document generation.
+async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
+  const { subtotal, total } = effectiveSubtotalAndTotal(payload);
+  const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const want = {
+    u_subtotal_quantity: Number(payload.subtotal_quantity) || 0,
+    v_subtotal_price: round2(subtotal),
+    w_total: round2(total),
+  };
+  const have = (deal && deal.properties) || {};
+  const changed = {};
+  Object.keys(want).forEach((k) => {
+    const cur = have[k];
+    const same = cur != null && String(cur).trim() !== '' && Math.abs(Number(cur) - want[k]) < 0.005;
+    if (!same) changed[k] = String(want[k]);
+  });
+  if (!Object.keys(changed).length) return false;
+  try { await setter(dealId, changed); return true; }
+  catch (e) { console.error(`syncDealTotals for deal ${dealId} failed:`, e.message); return false; }
+}
 
 // docType: 'order_confirmation' | 'invoice'
 // skipClearTrigger: don't PATCH the deal's trigger checkbox afterward — used by
@@ -61,6 +86,8 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
     try { await clearDealTrigger(dealId, trigger); }
     catch (e) { console.error(`clearDealTrigger ${trigger} for deal ${dealId} failed:`, e.message); }
   }
+
+  if (persist.persisted && dealId) await syncDealTotals(dealId, deal, payload);
 
   return {
     ok: true,
@@ -257,4 +284,4 @@ async function refreshModifiedDeals() {
   return summary;
 }
 
-module.exports = { generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, refreshModifiedDeals, getLastRefreshSummary, TRIGGER };
+module.exports = { syncDealTotals, generateDocument, markInTransit, markDelivered, markPaid, classifyTriggerEvent, runAction, runPoll, refreshModifiedDeals, getLastRefreshSummary, TRIGGER };

@@ -26,4 +26,21 @@ assert.strictEqual(classifyTriggerEvent(pc('dealstage', 'appointmentscheduled'))
 assert.strictEqual(classifyTriggerEvent({ subscriptionType: 'deal.creation', objectId: '1' }), null);
 assert.strictEqual(classifyTriggerEvent(undefined), null);
 
-console.log('hermesService.test.js: all assertions passed');
+// Totals written back to the deal: only what changed, never when already current.
+(async () => {
+  const { syncDealTotals } = require('./hermesService');
+  const payload = { line_items: [{ quantity: 5, price: 50, amount: 250 }], subtotal: 0, total: 0, subtotal_quantity: 5, shipping: 25, sales_tax: 17.5 };
+  const calls = [];
+  const set = async (id, props) => { calls.push([id, props]); };
+  assert.strictEqual(await syncDealTotals('D1', { properties: {} }, payload, set), true);
+  assert.deepStrictEqual(calls[0], ['D1', { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '292.5' }]);
+  // Already current (HubSpot hands numbers back as strings) => no write at all.
+  assert.strictEqual(await syncDealTotals('D1', { properties: { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '292.50' } }, payload, set), false);
+  assert.strictEqual(calls.length, 1);
+  // Only the stale one is sent.
+  await syncDealTotals('D1', { properties: { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '100' } }, payload, set);
+  assert.deepStrictEqual(calls[1], ['D1', { w_total: '292.5' }]);
+  // A HubSpot failure is swallowed (document generation must not fail).
+  assert.strictEqual(await syncDealTotals('D1', { properties: {} }, payload, async () => { throw new Error('403'); }), false);
+  console.log('hermesService.test.js: all assertions passed');
+})();

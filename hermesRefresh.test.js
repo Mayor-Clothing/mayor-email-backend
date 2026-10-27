@@ -18,6 +18,8 @@ hubspot.searchDeals = async (filterGroups) => {
 };
 hubspot.getInvoiceDeal = async () => ({ id: 'D1', properties: { order_number: 'ORD-1' } });
 hubspot.clearDealTrigger = async () => ({});
+const totalsWrites = [];
+hubspot.setDealTotals = async (id, props) => { totalsWrites.push([id, props]); return {}; };
 
 googleStore.dealDocPresence = async () => ({ oc: true, invoice: false });
 const persisted = [];
@@ -34,6 +36,8 @@ const { refreshModifiedDeals, getLastRefreshSummary } = require('./hermesService
   const firstWindow = searches[0];
   assert.ok(Date.now() - firstWindow > 23 * 60 * 60 * 1000, 'cold start still looks back ~24h');
   assert.strictEqual(persisted.length, 1, 'first click regenerates the existing OC');
+  assert.strictEqual(totalsWrites.length, 1, 'the order\'s totals are written back to the deal');
+  assert.strictEqual(totalsWrites[0][0], 'D1');
 
   // Second click, immediately after: the window must reach back BEFORE the
   // moment the first run finished, or an edit made seconds ago (and indexed a

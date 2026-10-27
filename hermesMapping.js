@@ -62,6 +62,9 @@ const INVOICE_PROPERTIES = [
   'invoice_date',
   // Sales tax: a positive number typed in HubSpot, added to the total.
   'sales_tax',
+  // Read back so the robot only writes the order's totals to the deal when they
+  // actually changed (see syncDealTotals in hermesService.js).
+  'u_subtotal_quantity', 'v_subtotal_price', 'w_total',
 ];
 
 // parseFloat that tolerates "$", "," and stray spaces; preserves a leading minus.

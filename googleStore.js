@@ -461,4 +461,4 @@ async function dealDocPresence({ dealId, orderNumber, index }) {
   };
 }
 
-module.exports = { persistOrder, setOrderStatus, buildDetailRow, credsPresent, matchRowIndex, dealDocPresence, fetchDocPresenceIndex, isRateLimited, withRetry };
+module.exports = { persistOrder, setOrderStatus, buildDetailRow, effectiveSubtotalAndTotal, credsPresent, matchRowIndex, dealDocPresence, fetchDocPresenceIndex, isRateLimited, withRetry };

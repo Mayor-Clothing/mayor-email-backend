@@ -102,6 +102,16 @@ async function setDealOrderStatus(dealId, value) {
   });
 }
 
+// Write the order's computed Subtotal Quantity / Subtotal Price / Total back onto
+// the deal so they're visible in HubSpot. `props` maps property name -> number
+// (as a string). None of these is a webhook trigger, so this can't loop.
+async function setDealTotals(dealId, props) {
+  return hubspotFetch(`/crm/v3/objects/deals/${dealId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: props }),
+  });
+}
+
 async function markDealFollowUpSent(dealId) {
   return hubspotFetch(`/crm/v3/objects/deals/${dealId}`, {
     method: 'PATCH',
@@ -136,6 +146,7 @@ module.exports = {
   getInvoiceDeal,
   clearDealTrigger,
   setDealOrderStatus,
+  setDealTotals,
   searchDeals,
   getContact,
   getPrimaryContactId,
