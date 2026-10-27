@@ -34,6 +34,10 @@ const seenAt = new Map(); // key -> last-generated epoch ms
 // One request for all changed fields; if HubSpot refuses it (say one field is
 // read-only, which rejects the WHOLE request), retry field by field so the others
 // still land and the refused one is named.
+// Fields HubSpot has said are calculated (read-only) -- remembered so we don't
+// re-send them on every deal of every Refresh (that was ~4 wasted calls per
+// document). Cleared on restart.
+const readOnlyTotals = new Set();
 async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
   const { subtotal, total } = effectiveSubtotalAndTotal(payload);
   const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -50,13 +54,21 @@ async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
     if (!same) changed[k] = String(want[k]);
   });
   const result = { written: [], failed: [] };
+  Object.keys(changed).forEach((k) => {
+    if (readOnlyTotals.has(k)) { result.failed.push({ prop: k, error: 'READ_ONLY_VALUE: a HubSpot calculated property (skipped)' }); delete changed[k]; }
+  });
   const names = Object.keys(changed);
   if (!names.length) return result;
   try { await setter(dealId, changed); result.written = names; return result; }
   catch (e) { console.error(`syncDealTotals for deal ${dealId} failed (${shortError(e)}); retrying field by field`); }
   for (const prop of names) {
     try { await setter(dealId, { [prop]: changed[prop] }); result.written.push(prop); }
-    catch (e) { result.failed.push({ prop, error: shortError(e) }); console.error(`syncDealTotals ${prop} for deal ${dealId} failed:`, e.message); }
+    catch (e) {
+      const error = shortError(e);
+      if (/READ_ONLY_VALUE/.test(error)) readOnlyTotals.add(prop);
+      result.failed.push({ prop, error });
+      console.error(`syncDealTotals ${prop} for deal ${dealId} failed:`, e.message);
+    }
   }
   return result;
 }

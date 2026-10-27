@@ -60,6 +60,14 @@ assert.strictEqual(classifyTriggerEvent(undefined), null);
   const nested = async () => { throw new Error('HubSpot API error 400 on /crm/v3/objects/deals/D1: ' + JSON.stringify({ status: 'error', message: 'Property values were not valid: ' + JSON.stringify([{ isValid: false, message: 'Property "w_total" is read-only', error: 'READ_ONLY_VALUE', name: 'w_total' }]) })); };
   const r5 = await syncDealTotals('D1', { properties: {} }, payload, nested);
   assert.ok(/READ_ONLY_VALUE/.test(r5.failed[0].error) && /read-only/.test(r5.failed[0].error), 'specific reason shown: ' + r5.failed[0].error);
+  // A field HubSpot called read-only is remembered: not sent again on the next deal.
+  let attempts = 0;
+  const ro = async () => { attempts += 1; throw new Error('HubSpot API error 400 on /x: ' + JSON.stringify({ status: 'error', message: 'Property values were not valid: ' + JSON.stringify([{ isValid: false, message: 'is a calculated property', error: 'READ_ONLY_VALUE' }]) })); };
+  await syncDealTotals('D8', { properties: {} }, payload, ro);   // first deal learns all three are read-only
+  const before = attempts;
+  const r6 = await syncDealTotals('D9', { properties: {} }, payload, ro);
+  assert.strictEqual(attempts, before, 'no further calls for known read-only fields');
+  assert.strictEqual(r6.failed.length, 3);
   // A total HubSpot failure is swallowed (document generation must not fail).
   const r4 = await syncDealTotals('D1', { properties: {} }, payload, async () => { throw new Error('403'); });
   assert.strictEqual(r4.written.length, 0);
