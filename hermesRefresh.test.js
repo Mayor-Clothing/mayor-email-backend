@@ -37,6 +37,7 @@ const { refreshModifiedDeals, getLastRefreshSummary } = require('./hermesService
   assert.ok(Date.now() - firstWindow > 23 * 60 * 60 * 1000, 'cold start still looks back ~24h');
   assert.strictEqual(persisted.length, 1, 'first click regenerates the existing OC');
   assert.strictEqual(totalsWrites.length, 1, 'the order\'s totals are written back to the deal');
+  assert.strictEqual(getLastRefreshSummary().totalsWritten, 1, 'the run reports how many deals got totals');
   assert.strictEqual(totalsWrites[0][0], 'D1');
 
   // Second click, immediately after: the window must reach back BEFORE the

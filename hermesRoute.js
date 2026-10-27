@@ -84,7 +84,7 @@ router.post('/refresh', publicCors, refreshRateLimit, (req, res) => {
   refreshModifiedDeals()
     .then((s) => {
       console.log('refresh done:', JSON.stringify(s));
-      runs.set(runId, { state: 'done', startedAt: runs.get(runId)?.startedAt || Date.now(), checked: s.checked, updated: (s.regenerated || []).length, errors: s.errors, failed: !!s.error });
+      runs.set(runId, { state: 'done', startedAt: runs.get(runId)?.startedAt || Date.now(), checked: s.checked, updated: (s.regenerated || []).length, errors: s.errors, failed: !!s.error, totalsWritten: s.totalsWritten || 0, totalsFailed: s.totalsFailed || 0, totalsError: s.totalsError || '' });
     })
     .catch((e) => {
       console.error('refresh failed:', e.message);

@@ -32,15 +32,32 @@ assert.strictEqual(classifyTriggerEvent(undefined), null);
   const payload = { line_items: [{ quantity: 5, price: 50, amount: 250 }], subtotal: 0, total: 0, subtotal_quantity: 5, shipping: 25, sales_tax: 17.5 };
   const calls = [];
   const set = async (id, props) => { calls.push([id, props]); };
-  assert.strictEqual(await syncDealTotals('D1', { properties: {} }, payload, set), true);
+  const r1 = await syncDealTotals('D1', { properties: {} }, payload, set);
+  assert.deepStrictEqual(r1.written, ['u_subtotal_quantity', 'v_subtotal_price', 'w_total']);
+  assert.deepStrictEqual(r1.failed, []);
   assert.deepStrictEqual(calls[0], ['D1', { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '292.5' }]);
   // Already current (HubSpot hands numbers back as strings) => no write at all.
-  assert.strictEqual(await syncDealTotals('D1', { properties: { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '292.50' } }, payload, set), false);
+  const r2 = await syncDealTotals('D1', { properties: { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '292.50' } }, payload, set);
+  assert.deepStrictEqual(r2, { written: [], failed: [] });
   assert.strictEqual(calls.length, 1);
   // Only the stale one is sent.
   await syncDealTotals('D1', { properties: { u_subtotal_quantity: '5', v_subtotal_price: '250', w_total: '100' } }, payload, set);
   assert.deepStrictEqual(calls[1], ['D1', { w_total: '292.5' }]);
-  // A HubSpot failure is swallowed (document generation must not fail).
-  assert.strictEqual(await syncDealTotals('D1', { properties: {} }, payload, async () => { throw new Error('403'); }), false);
+  // One refused field (HubSpot rejects the whole request) must not block the other two:
+  // the retry goes field by field and names the refused one.
+  const sent = [];
+  const picky = async (id, props) => {
+    if ('w_total' in props) throw new Error('HubSpot API error 400 on /crm/v3/objects/deals/D1: {"status":"error","message":"Property \\"w_total\\" is read-only"}');
+    sent.push(props);
+  };
+  const r3 = await syncDealTotals('D1', { properties: {} }, payload, picky);
+  assert.deepStrictEqual(r3.written, ['u_subtotal_quantity', 'v_subtotal_price']);
+  assert.strictEqual(r3.failed.length, 1);
+  assert.strictEqual(r3.failed[0].prop, 'w_total');
+  assert.ok(/400/.test(r3.failed[0].error), 'error is summarised with its status');
+  // A total HubSpot failure is swallowed (document generation must not fail).
+  const r4 = await syncDealTotals('D1', { properties: {} }, payload, async () => { throw new Error('403'); });
+  assert.strictEqual(r4.written.length, 0);
+  assert.strictEqual(r4.failed.length, 3);
   console.log('hermesService.test.js: all assertions passed');
 })();

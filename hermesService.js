@@ -29,7 +29,11 @@ const seenAt = new Map(); // key -> last-generated epoch ms
 // (the same numbers as the PDF and the sheet). Only writes values that differ from
 // what the deal already holds: a write bumps hs_lastmodifieddate, which the Refresh
 // button reads as "edited", so writing unchanged numbers would re-loop it forever.
-// Best-effort -- a failure here must never fail document generation.
+// Best-effort -- a failure here must never fail document generation. Returns
+// { written: [property names], failed: [{ prop, error }] } so Refresh can report it.
+// One request for all changed fields; if HubSpot refuses it (say one field is
+// read-only, which rejects the WHOLE request), retry field by field so the others
+// still land and the refused one is named.
 async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
   const { subtotal, total } = effectiveSubtotalAndTotal(payload);
   const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -45,9 +49,24 @@ async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
     const same = cur != null && String(cur).trim() !== '' && Math.abs(Number(cur) - want[k]) < 0.005;
     if (!same) changed[k] = String(want[k]);
   });
-  if (!Object.keys(changed).length) return false;
-  try { await setter(dealId, changed); return true; }
-  catch (e) { console.error(`syncDealTotals for deal ${dealId} failed:`, e.message); return false; }
+  const result = { written: [], failed: [] };
+  const names = Object.keys(changed);
+  if (!names.length) return result;
+  try { await setter(dealId, changed); result.written = names; return result; }
+  catch (e) { console.error(`syncDealTotals for deal ${dealId} failed (${shortError(e)}); retrying field by field`); }
+  for (const prop of names) {
+    try { await setter(dealId, { [prop]: changed[prop] }); result.written.push(prop); }
+    catch (e) { result.failed.push({ prop, error: shortError(e) }); console.error(`syncDealTotals ${prop} for deal ${dealId} failed:`, e.message); }
+  }
+  return result;
+}
+
+// HubSpot's error bodies are JSON; keep just the human message, short enough to
+// show on the Refresh tab.
+function shortError(e) {
+  const msg = String((e && e.message) || e || '');
+  const m = msg.match(/"message"\s*:\s*"([^"]*)"/);
+  return (m ? `${msg.match(/error (\d+)/) ? msg.match(/error (\d+)/)[1] + ': ' : ''}${m[1]}` : msg).slice(0, 160);
 }
 
 // docType: 'order_confirmation' | 'invoice'
@@ -87,7 +106,7 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
     catch (e) { console.error(`clearDealTrigger ${trigger} for deal ${dealId} failed:`, e.message); }
   }
 
-  if (persist.persisted && dealId) await syncDealTotals(dealId, deal, payload);
+  const totals = (persist.persisted && dealId) ? await syncDealTotals(dealId, deal, payload) : null;
 
   return {
     ok: true,
@@ -97,6 +116,7 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
     driveFileId: persist.driveFileId,
     pdfUrl: persist.pdfUrl,
     persisted: persist.persisted,
+    totals, // what was written back to the HubSpot deal (null if nothing was persisted)
     pdf, // Buffer; the HTTP route base64-encodes it, triggers ignore it
   };
 }
@@ -229,7 +249,7 @@ const getLastRefreshSummary = () => lastRefreshSummary;
 async function refreshModifiedDeals() {
   const runId = Date.now();
   const since = lastRefreshTs - REFRESH_GRACE_MS;
-  const summary = { checked: 0, regenerated: [], errors: 0 };
+  const summary = { checked: 0, regenerated: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '' };
   let deals;
   try {
     deals = await searchDeals(
@@ -271,7 +291,14 @@ async function refreshModifiedDeals() {
         // Unique key per run: the 2-minute dedup exists to stop a webhook and a
         // poll double-firing, but it must never swallow an explicit human click
         // (the "it didn't work, click it again" retry landed inside that window).
-        await generateDocument({ dealId: d.id, docType, skipClearTrigger: true, idempotencyKey: `refresh:${runId}:${d.id}:${docType}` });
+        const r = await generateDocument({ dealId: d.id, docType, skipClearTrigger: true, idempotencyKey: `refresh:${runId}:${d.id}:${docType}` });
+        if (r && r.totals) {
+          if (r.totals.written.length) summary.totalsWritten += 1;
+          if (r.totals.failed.length) {
+            summary.totalsFailed += 1;
+            if (!summary.totalsError) summary.totalsError = `${r.totals.failed[0].prop} - ${r.totals.failed[0].error}`;
+          }
+        }
         summary.regenerated.push(`${orderNumber || d.id}:${docType === 'invoice' ? 'inv' : 'oc'}`);
       } catch (e) {
         summary.errors += 1;
