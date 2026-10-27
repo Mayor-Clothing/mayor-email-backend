@@ -55,6 +55,11 @@ assert.strictEqual(classifyTriggerEvent(undefined), null);
   assert.strictEqual(r3.failed.length, 1);
   assert.strictEqual(r3.failed[0].prop, 'w_total');
   assert.ok(/400/.test(r3.failed[0].error), 'error is summarised with its status');
+  // The HubSpot error body nests per-property problems inside an escaped JSON string;
+  // the summary must surface the specific reason, not cut off at the first quote.
+  const nested = async () => { throw new Error('HubSpot API error 400 on /crm/v3/objects/deals/D1: ' + JSON.stringify({ status: 'error', message: 'Property values were not valid: ' + JSON.stringify([{ isValid: false, message: 'Property "w_total" is read-only', error: 'READ_ONLY_VALUE', name: 'w_total' }]) })); };
+  const r5 = await syncDealTotals('D1', { properties: {} }, payload, nested);
+  assert.ok(/READ_ONLY_VALUE/.test(r5.failed[0].error) && /read-only/.test(r5.failed[0].error), 'specific reason shown: ' + r5.failed[0].error);
   // A total HubSpot failure is swallowed (document generation must not fail).
   const r4 = await syncDealTotals('D1', { properties: {} }, payload, async () => { throw new Error('403'); });
   assert.strictEqual(r4.written.length, 0);

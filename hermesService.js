@@ -65,8 +65,23 @@ async function syncDealTotals(dealId, deal, payload, setter = setDealTotals) {
 // show on the Refresh tab.
 function shortError(e) {
   const msg = String((e && e.message) || e || '');
-  const m = msg.match(/"message"\s*:\s*"([^"]*)"/);
-  return (m ? `${msg.match(/error (\d+)/) ? msg.match(/error (\d+)/)[1] + ': ' : ''}${m[1]}` : msg).slice(0, 160);
+  const status = (msg.match(/error (\d+)/) || [])[1];
+  let text = '';
+  try {
+    // "HubSpot API error 400 on /path: {json}" -- the JSON's message can itself hold
+    // an escaped JSON list of per-property problems ("Property values were not
+    // valid: [{...}]"); dig the specific reason out of it.
+    const body = JSON.parse(msg.slice(msg.indexOf('{')));
+    text = String(body.message || '');
+    const list = text.match(/\[.*\]/s);
+    if (list) {
+      const items = JSON.parse(list[0]);
+      const why = items.map((i) => [i.error, i.message].filter(Boolean).join(' ')).filter(Boolean).join('; ');
+      if (why) text = why;
+    }
+  } catch (_) { /* fall through to the raw text */ }
+  if (!text) text = msg.replace(/\\+"/g, '"');
+  return `${status ? status + ': ' : ''}${text}`.slice(0, 220);
 }
 
 // docType: 'order_confirmation' | 'invoice'
@@ -249,7 +264,7 @@ const getLastRefreshSummary = () => lastRefreshSummary;
 async function refreshModifiedDeals() {
   const runId = Date.now();
   const since = lastRefreshTs - REFRESH_GRACE_MS;
-  const summary = { checked: 0, regenerated: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '' };
+  const summary = { checked: 0, regenerated: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '', totalsErrors: {} };
   let deals;
   try {
     deals = await searchDeals(
@@ -296,7 +311,9 @@ async function refreshModifiedDeals() {
           if (r.totals.written.length) summary.totalsWritten += 1;
           if (r.totals.failed.length) {
             summary.totalsFailed += 1;
-            if (!summary.totalsError) summary.totalsError = `${r.totals.failed[0].prop} - ${r.totals.failed[0].error}`;
+            // First reason seen per field, so every refused field is named.
+            r.totals.failed.forEach((f) => { if (!summary.totalsErrors[f.prop]) summary.totalsErrors[f.prop] = f.error; });
+            summary.totalsError = Object.entries(summary.totalsErrors).map(([p, err]) => `${p} - ${err}`).join(' | ').slice(0, 600);
           }
         }
         summary.regenerated.push(`${orderNumber || d.id}:${docType === 'invoice' ? 'inv' : 'oc'}`);
