@@ -1,7 +1,7 @@
 // Runnable check for the MO-sheet row layout + no-creds guard.
 // `node googleStore.test.js`. No network: persistOrder must no-op without creds.
 const assert = require('assert');
-const { buildDetailRow, persistOrder, credsPresent, matchRowIndex } = require('./googleStore');
+const { clubNeedsSync, buildDetailRow, persistOrder, credsPresent, matchRowIndex } = require('./googleStore');
 const { COL } = require('./mo-sheet');
 
 // Row must place fields at the exact indices portal.js parseSheetRow reads.
@@ -119,3 +119,12 @@ assert.strictEqual(matchRowIndex(infoRows, 7, 0, 'D2', 'Nope'), -1, 'Order Info 
   assert.strictEqual(withStatus.status, 'Delivered');
   console.log('googleStore.test.js: all assertions passed');
 })();
+
+// Customer name sync on an existing Order Info row.
+assert.strictEqual(clubNeedsSync('Colleen Jones', 'MGT'), true);
+assert.strictEqual(clubNeedsSync('MGT', 'MGT'), false);
+assert.strictEqual(clubNeedsSync(' MGT ', 'MGT'), false);
+assert.strictEqual(clubNeedsSync('Colleen Jones', ''), false);
+assert.strictEqual(clubNeedsSync('', 'MGT'), true);
+assert.strictEqual(clubNeedsSync(undefined, undefined), false);
+console.log('clubNeedsSync ok');

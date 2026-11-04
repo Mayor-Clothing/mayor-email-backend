@@ -365,6 +365,13 @@ async function persistOrder({ payload, docType, pdfBuffer }) {
       if (String(row[INFO_PAYMENTSTATUS_COL] || '') !== String(payload.payment_status || '')) {
         updates.push({ range: `Order Info!J${targetRow}`, values: [[sheetSafe(payload.payment_status || '')]] });
       }
+      // Customer (club) name: only ever written when the row was first created, so a
+      // name changed in HubSpot afterward never reached the order page header/list
+      // (it reads this column, not the detail tab). Sync it when HubSpot has a
+      // value that differs; a blank in HubSpot leaves the sheet's name alone.
+      if (clubNeedsSync(row[1], payload.club)) {
+        updates.push({ range: `Order Info!B${targetRow}`, values: [[sheetSafe(payload.club)]] });
+      }
       // Keep the email column in sync with HubSpot -- previously only set when the
       // row was first created, so adding a second email to an existing deal (or
       // correcting a typo) never reached the sheet no matter how many times
@@ -461,4 +468,11 @@ async function dealDocPresence({ dealId, orderNumber, index }) {
   };
 }
 
-module.exports = { persistOrder, setOrderStatus, buildDetailRow, effectiveSubtotalAndTotal, credsPresent, matchRowIndex, dealDocPresence, fetchDocPresenceIndex, isRateLimited, withRetry };
+// True when HubSpot has a customer name that differs from the Order Info cell.
+// A blank HubSpot value never overwrites a name already on the sheet.
+function clubNeedsSync(sheetClub, hubspotClub) {
+  const next = String(hubspotClub || '').trim();
+  return next !== '' && String(sheetClub || '').trim() !== next;
+}
+
+module.exports = { clubNeedsSync, persistOrder, setOrderStatus, buildDetailRow, effectiveSubtotalAndTotal, credsPresent, matchRowIndex, dealDocPresence, fetchDocPresenceIndex, isRateLimited, withRetry };

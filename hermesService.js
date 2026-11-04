@@ -24,6 +24,7 @@ const TRIGGER = {
 // (needs deals-write scope on the private app).
 const DEDUP_TTL_MS = 2 * 60 * 1000;
 const seenAt = new Map(); // key -> last-generated epoch ms
+let refreshRunCounter = 0;
 
 // Show the order's Subtotal Quantity / Subtotal Price / Total on the HubSpot deal
 // (the same numbers as the PDF and the sheet). Only writes values that differ from
@@ -282,7 +283,7 @@ let lastRefreshSummary = null;
 const getLastRefreshSummary = () => lastRefreshSummary;
 
 async function refreshModifiedDeals() {
-  const runId = Date.now();
+  const runId = `${Date.now()}-${++refreshRunCounter}`;   // counter: two runs in one millisecond must not share dedup keys
   const since = lastRefreshTs - REFRESH_GRACE_MS;
   const summary = { checked: 0, regenerated: [], skipped: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '', totalsErrors: {} };
   let deals;
