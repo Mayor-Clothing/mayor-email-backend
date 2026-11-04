@@ -54,5 +54,11 @@ const { refreshModifiedDeals, getLastRefreshSummary } = require('./hermesService
   assert.ok(summary && summary.finishedAt && summary.windowStart, 'last-run summary is recorded for /refresh/last');
   assert.deepStrictEqual(summary.regenerated, ['ORD-1:oc']);
 
+  // An existing invoice with NO payment link must still be refreshed (renamed/corrected).
+  googleStore.dealDocPresence = async () => ({ oc: false, invoice: true });
+  const before = persisted.length;
+  await refreshModifiedDeals();
+  assert.strictEqual(persisted.length, before + 1, 'a refresh updates an existing invoice even without a payment link');
+
   console.log('hermesRefresh.test.js: all assertions passed');
 })();

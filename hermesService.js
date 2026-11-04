@@ -109,9 +109,17 @@ async function generateDocument({ dealId, docType, idempotencyKey, skipClearTrig
   // Log it loudly rather than skipping silently — otherwise the customer just
   // sees "Invoice not available yet" forever with nobody knowing a missing link
   // is the blocker (F6).
+  // The guard is for CREATING an invoice. A Refresh (skipClearTrigger) only ever
+  // updates an invoice that already exists, so it must not be blocked: an old
+  // order with a blank link could never be renamed or corrected, and its stale
+  // row (still carrying the old order name) kept shadowing the new order that
+  // reused the name.
   if (docType === 'invoice' && !payload.payment_link) {
-    console.warn(`Invoice NOT generated for deal ${dealId} (order "${orderNumber}"): no payment link. Set y_payment_link in HubSpot, then re-trigger the invoice.`);
-    return { ok: false, docType, orderNumber, skipped: 'no payment link' };
+    if (!skipClearTrigger) {
+      console.warn(`Invoice NOT generated for deal ${dealId} (order "${orderNumber}"): no payment link. Set y_payment_link in HubSpot, then re-trigger the invoice.`);
+      return { ok: false, docType, orderNumber, skipped: 'no payment link' };
+    }
+    console.warn(`Refresh: updating existing invoice for deal ${dealId} (order "${orderNumber}") although it has no payment link.`);
   }
 
   const key = idempotencyKey || `${orderNumber}:${docType}`;
@@ -276,7 +284,7 @@ const getLastRefreshSummary = () => lastRefreshSummary;
 async function refreshModifiedDeals() {
   const runId = Date.now();
   const since = lastRefreshTs - REFRESH_GRACE_MS;
-  const summary = { checked: 0, regenerated: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '', totalsErrors: {} };
+  const summary = { checked: 0, regenerated: [], skipped: [], errors: 0, totalsWritten: 0, totalsFailed: 0, totalsError: '', totalsErrors: {} };
   let deals;
   try {
     deals = await searchDeals(
@@ -319,6 +327,7 @@ async function refreshModifiedDeals() {
         // poll double-firing, but it must never swallow an explicit human click
         // (the "it didn't work, click it again" retry landed inside that window).
         const r = await generateDocument({ dealId: d.id, docType, skipClearTrigger: true, idempotencyKey: `refresh:${runId}:${d.id}:${docType}` });
+        if (r && r.skipped) { summary.skipped.push(`${orderNumber || d.id}:${r.skipped === true ? 'already done' : r.skipped}`); continue; }
         if (r && r.totals) {
           if (r.totals.written.length) summary.totalsWritten += 1;
           if (r.totals.failed.length) {
