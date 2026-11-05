@@ -135,10 +135,10 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const docTitle = data.type === 'confirmation' ? 'ORDER CONFIRMATION' : 'INVOICE';
       doc.fontSize(20).font('Helvetica-Bold').fillColor(INK)
          .text(docTitle, margin, margin, { width: contentW, align: 'right', characterSpacing: 1 });
-      // "# <order>" -- hidden entirely when there is no order name/number.
+      // The order name/number under the title -- hidden entirely when there is none.
       if (String(order_number || '').trim()) {
         doc.fontSize(10).font('Helvetica').fillColor('#555')
-           .text('# ' + String(order_number).trim(), margin, margin + 26, { width: contentW, align: 'right' });
+           .text(String(order_number).trim(), margin, margin + 26, { width: contentW, align: 'right' });
       }
       // Document date from HubSpot's Invoice Date; no value => no line at all.
       if (invoice_date && String(invoice_date).trim()) {
@@ -405,6 +405,14 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
         }
         ty += rowH2;
       });
+
+      // Closing line under the boxes (replaces the old page-bottom footer): who to
+      // contact with questions. Clamped so it can never spill onto a second page.
+      const docWord = data.type === 'confirmation' ? 'order confirmation' : 'invoice';
+      const closeY = Math.min(y + Math.max(leftBoxH, totalsBoxH) + 18, pageH - margin - 14);
+      doc.fontSize(9).font('Helvetica').fillColor('#555')
+         .text(`If you have any questions about this ${docWord}, please contact Customer Service at 339-206-2111 or mayor@mayorclothing.com`,
+           margin + 40, closeY, { width: contentW - 80, align: 'center' });
 
       doc.end();
     } catch (e) {
