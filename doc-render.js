@@ -335,7 +335,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
       const termsH = doc.font('Helvetica').fontSize(9).heightOfString(termsText + 'Here is our W-9.', { width: contentW - 16 });
       const leftBoxH = termsH + 28;
       const docWord = data.type === 'confirmation' ? 'order confirmation' : 'invoice';
-      const closingText = `If you have any questions about this ${docWord}, please contact Customer Service at 339-206-2111 or mayor@mayorclothing.com`;
+      const closingText = `If you have any questions about this ${docWord}, please contact Matt Bartini at 339-206-2111 or mayor@mayorclothing.com`;
       const closeH = doc.font('Helvetica').fontSize(9).heightOfString(closingText, { width: contentW - 80, align: 'center' });
 
       // Height of everything that follows the product table: totals, payment terms, closing line.
@@ -496,7 +496,7 @@ async function renderInvoicePdf(data, logoPath = DEFAULT_LOGO_PATH) {
 
       // ── Payment Terms: full-width box beneath the totals ──
       let termsY = totalsY + totalsBoxH + GAP;
-      // Terms + the Customer Service line travel together: if they don't both fit under the totals,
+      // Terms + the closing line travel together: if they don't both fit under the totals,
       // they go to a new page.
       if (termsY + leftBoxH + GAP + closeH > pageBottom) {
         doc.addPage();
